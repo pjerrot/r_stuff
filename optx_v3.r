@@ -663,7 +663,7 @@ opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, inc
             numsql <- paste("(",optx_stats_hlp$sqlstring[l],")")
           }
 
-          fitted_models = df2 %>% group_by(cat_x) %>% do(model = glm(binarytarget ~ num_x, data = ., family=binomial()))
+          fitted_models = df2 %>% group_by(cat_x) %>% do(model = glm(binarytarget ~ num_x, data = ., family=gaussian()))
           
 
           varsql <- "case"
