@@ -10,6 +10,8 @@ library("ggplot2")
 library("psych")
 library("glmnet")
 
+source("https://github.com/pjerrot/r_stuff/raw/master/glm_to_sql.r")
+
 # Mangler...:
 ## Udvide opt.x funktion med sql db input:
 #1: "SQLite"     CASE WHEN=OK; EXP="EXP";  POWER="POWER"; BETWEEN=OK; CONCATENATION="||"
@@ -890,64 +892,6 @@ rpart_to_sql <- function(model,df) {
   return(outs)
 }
 
-glm_to_sql <- function(glmmodel) {
-  vartypes <- data.frame(unlist(attr(glmmodel$terms,'dataClasses')))
-  vartypes$varname <- rownames(vartypes)
-  rownames(vartypes) <- NULL
-  colnames(vartypes)[1] <- "vartype"
-  
-  xlev <- data.frame(unlist(glmmodel$xlevels))
-  xlev$xlevrowname <- rownames(xlev)
-  rownames(xlev) <- NULL
-  colnames(xlev)[1] <- "xlevel"
-  if (nrow(xlev)==0){xlev <- data.frame(xlevrowname=character(0), xlevel=character(0), stringsAsFactors=F)}
-  
-  modcoeffs <- data.frame(unlist(glmmodel$coefficients))
-  modcoeffs$coeffname <- rownames(modcoeffs)
-  rownames(modcoeffs) <- NULL
-  colnames(modcoeffs)[1] <- "coeffvalue"
-  modcoeffs[is.na(modcoeffs$coeffvalue),"coeffvalue"] <- 0
-  
-  varcats <- data.frame(varname=character(0), #name of variable
-                        category=character(0), stringsAsFactors=F)
-  if (length(glmmodel$xlevels)>0) {
-    for (i in 1:length(glmmodel$xlevels)) {
-      for (j in 1:nrow(data.frame(glmmodel$xlevels[i]))) {
-        varcats[nrow(varcats)+1,] <- c(colnames(data.frame(glmmodel$xlevels[i])), data.frame(glmmodel$xlevels[i], stringsAsFactors=F)[j,1] )
-      }  
-    }
-  }  
-  
-  coeffmatrix <- sqldf("select coeffvalue, coeffname, NULL as xlevel, '' as xlevrowname, '' as sqlstr, varname
-                       from modcoeffs a join vartypes b on b.varname = a.coeffname where b.vartype='numeric' 
-                       UNION ALL                    
-                       select distinct coeffvalue, coeffname, trim(category) as xlevel, '' as xlevrowname, '' as sqlstr, varname
-                       from modcoeffs a join varcats b on coeffname = varname || category ")
-  coeffmatrix[nrow(coeffmatrix)+1,c("coeffvalue","coeffname")] <- subset(modcoeffs[,c("coeffvalue","coeffname")], coeffname == '(Intercept)')
-  coeffmatrix[,"xlevel"] <- gsub("[\r\n]", "", coeffmatrix[,"xlevel"])
-  coeffmatrix <- sqldf("select distinct * from coeffmatrix")
-  
-  for (i in 1:nrow(coeffmatrix)) {
-    if(coeffmatrix$coeffname[i] == "(Intercept)") 
-    {
-      coeffmatrix$sqlstr[i] <- coeffmatrix$coeffvalue[i]
-    } else if (is.na(coeffmatrix$xlevel[i]) ) {    
-      coeffmatrix$sqlstr[i] <- paste("(",coeffmatrix$coeffvalue[i],"*",coeffmatrix$coeffname[i],")")
-    } else {
-      coeffmatrix$sqlstr[i] <- paste("(case when ",coeffmatrix$varname[i],"='",coeffmatrix$xlevel[i], "' THEN ",coeffmatrix$coeffvalue[i]," ELSE 0 END)",sep="")
-    }
-    
-    if (i==1){x.sql0 <- coeffmatrix$sqlstr[i]} else {x.sql0 <- paste(x.sql0,"+",coeffmatrix$sqlstr[i])}
-  }
-  
-  if (glmmodel$family$link == "logit") {
-    x.sql <- paste("1/(1 + exp(-(",x.sql0,")))")  
-  } else if (glmmodel$family$link == "identity") {
-    x.sql <- x.sql0
-  }
-  
-  return(x.sql)
-}
 
 gini_curve <- function(df,modelobj,targetdef,plotroc=FALSE){
   options(warn=-1)
