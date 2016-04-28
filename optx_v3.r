@@ -71,6 +71,7 @@ opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, inc
   for(i in colnames(df)) {  
     tabel2[1,i] <- length(unique(df[,i]))
   }
+  df <- df[,colnames(tabel2[1,tabel2[1,]>1])] #fjerner vars uden varians
   
   # table created to store variable selection criteria for all tested variables
   optx_stats <- data.frame(varname=character(0), #name of variable
@@ -86,8 +87,8 @@ opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, inc
   nomissvars <- c()
   missvars_num <- c()
   missvars_mul <- c()
-  for (k in colnames(df)) {
-    varnamet <- colnames(df[k])
+  for (k in colnames(tabel2[1,tabel2[1,]>1])) {
+    varnamet <- k
     if (sum(is.na(df[,k]))>100) {
       if (tabel2[1,k]==2) {
         missvars_bin <- c(missvars_bin,varnamet)
@@ -1013,14 +1014,6 @@ glm_to_sql <- function(glmmodel) {
   colnames(modcoeffs)[1] <- "coeffvalue"
   modcoeffs[is.na(modcoeffs$coeffvalue),"coeffvalue"] <- 0
   
-  for (i in 1:nrow(modcoeffs)) {    
-    v <- unlist(strsplit(modcoeffs[i,"coeffname"], ":", fixed=FALSE))
-    modcoeffs[i,"splitname1"] <- v[1]
-    modcoeffs[i,"splitname2"] <- v[2]
-    modcoeffs[i,"splitname3"] <- v[3]
-    modcoeffs[i,"splitname4"] <- v[4]
-  }
-  
   varcats <- data.frame(varname=character(0), #name of variable
                         category=character(0), stringsAsFactors=F)
   if (length(glmmodel$xlevels)>0) {
@@ -1030,76 +1023,40 @@ glm_to_sql <- function(glmmodel) {
       }  
     }
   }  
-  modcoeffs$sql1 <- modcoeffs$splitname1
-  modcoeffs$sql2 <- modcoeffs$splitname2
-  modcoeffs$sql3 <- modcoeffs$splitname3
-  modcoeffs$sql4 <- modcoeffs$splitname4
-  modcoeffs$varname1 <- modcoeffs$splitname1
-  modcoeffs$varname2 <- modcoeffs$splitname2
-  modcoeffs$varname3 <- modcoeffs$splitname3
-  modcoeffs$varname4 <- modcoeffs$splitname4
   
-  for (i in 1:nrow(modcoeffs)) {    
-    for (j in 1:nrow(varcats)) {    
-      if (modcoeffs[i,"splitname1"] == paste(varcats[j,"varname"], varcats[j,"category"],sep="")) 
-      { 
-        modcoeffs[i,"sql1"] <- paste("(",varcats[j,"varname"],"='",varcats[j,"category"],"')",sep="")
-        modcoeffs[i,"varname1"] <- varcats[j,"varname"]
-      }
-      if (is.na(modcoeffs[i,"splitname2"]) != TRUE) 
-      {
-        if (modcoeffs[i,"splitname2"] == paste(varcats[j,"varname"], varcats[j,"category"],sep="")) 
-        { 
-          modcoeffs[i,"sql2"] <- paste("(",varcats[j,"varname"],"='",varcats[j,"category"],"')",sep="")
-          modcoeffs[i,"varname2"] <- varcats[j,"varname"]
-        }  
-      }
-      if (is.na(modcoeffs[i,"splitname3"]) != TRUE) 
-      {
-        if (modcoeffs[i,"splitname3"] == paste(varcats[j,"varname"], varcats[j,"category"],sep="")) 
-        { 
-          modcoeffs[i,"sql3"] <- paste("(",varcats[j,"varname"],"='",varcats[j,"category"],"')",sep="")
-          modcoeffs[i,"varname3"] <- varcats[j,"varname"]
-        }  
-      }
-      if (is.na(modcoeffs[i,"splitname4"]) != TRUE) 
-      {
-        if (modcoeffs[i,"splitname4"] == paste(varcats[j,"varname"], varcats[j,"category"],sep="")) 
-        { 
-          modcoeffs[i,"sql4"] <- paste("(",varcats[j,"varname"],"='",varcats[j,"category"],"')",sep="")
-          modcoeffs[i,"varname4"] <- varcats[j,"varname"]
-        }  
-      }
+  coeffmatrix <- sqldf("select coeffvalue, coeffname, NULL as xlevel, '' as xlevrowname, '' as sqlstr, varname
+                       from modcoeffs a join vartypes b on b.varname = a.coeffname where b.vartype='numeric' 
+                       UNION ALL                    
+                       select distinct coeffvalue, coeffname, trim(category) as xlevel, '' as xlevrowname, '' as sqlstr, varname
+                       from modcoeffs a join varcats b on coeffname = varname || category ")
+  coeffmatrix[nrow(coeffmatrix)+1,c("coeffvalue","coeffname")] <- subset(modcoeffs[,c("coeffvalue","coeffname")], coeffname == '(Intercept)')
+  coeffmatrix[,"xlevel"] <- gsub("[\r\n]", "", coeffmatrix[,"xlevel"])
+  coeffmatrix <- sqldf("select distinct * from coeffmatrix")
+  
+  for (i in 1:nrow(coeffmatrix)) {
+    if(coeffmatrix$coeffname[i] == "(Intercept)") 
+    {
+      coeffmatrix$sqlstr[i] <- coeffmatrix$coeffvalue[i]
+    } else if (is.na(coeffmatrix$xlevel[i]) ) {    
+      coeffmatrix$sqlstr[i] <- paste("(",coeffmatrix$coeffvalue[i],"*",coeffmatrix$coeffname[i],")")
+    } else {
+      coeffmatrix$sqlstr[i] <- paste("(case when ",coeffmatrix$varname[i],"='",coeffmatrix$xlevel[i], "' THEN ",coeffmatrix$coeffvalue[i]," ELSE 0 END)",sep="")
     }
     
+    if (i==1){x.sql0 <- coeffmatrix$sqlstr[i]} else {x.sql0 <- paste(x.sql0,"+",coeffmatrix$sqlstr[i])}
   }
   
-  modcoeffs$sql <- ""
-  for (i in 1:nrow(modcoeffs)) {    
-    modcoeffs[i,"sql"] <- ifelse(is.na(modcoeffs[i,"sql4"])==FALSE, paste(modcoeffs[i,"coeffvalue"],"*",modcoeffs[i,"sql1"],"*",modcoeffs[i,"sql2"],"*",modcoeffs[i,"sql3"],"*",modcoeffs[i,"sql4"],sep=""),
-                                 ifelse(is.na(modcoeffs[i,"sql3"])==FALSE, paste(modcoeffs[i,"coeffvalue"],"*",modcoeffs[i,"sql1"],"*",modcoeffs[i,"sql2"],"*",modcoeffs[i,"sql3"],sep=""),
-                                        ifelse(is.na(modcoeffs[i,"sql2"])==FALSE, paste(modcoeffs[i,"coeffvalue"],"*",modcoeffs[i,"sql1"],"*",modcoeffs[i,"sql2"],sep=""),
-                                               ifelse(is.na(modcoeffs[i,"sql1"])==FALSE, paste(modcoeffs[i,"coeffvalue"],"*",modcoeffs[i,"sql1"],sep=""),""))))
-    modcoeffs[i,"sql"] <- ifelse(modcoeffs[i,"sql1"]=="(Intercept)",modcoeffs[i,"coeffvalue"],modcoeffs[i,"sql"] )
-  }
-  
-  x.sql0 <- ""  
-  for (i in 1:nrow(modcoeffs)) {    
-    if (i==1){x.sql0 <- modcoeffs$sql[i]} else {x.sql0 <- paste(x.sql0,"+",modcoeffs$sql[i])}
-  }
-  
-  if (is.null(glmmodel$family$link)){
+  if (glmmodel$family$link == "logit") {
+    x.sql <- paste("1/(1 + exp(-(",x.sql0,")))")  
+  } else if (glmmodel$family$link == "identity") {
     x.sql <- x.sql0
-  } else {  
-    if (glmmodel$family$link == "logit") {
-      x.sql <- paste("1/(1 + exp(-(",x.sql0,")))")  
-    } else if (glmmodel$family$link == "identity") {
-      x.sql <- x.sql0
-    }
   }
+  
   assign("modcoeffs",modcoeffs,envir = .GlobalEnv)
   
   return(x.sql)
 }
+
+
 
 
