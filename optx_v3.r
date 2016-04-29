@@ -733,7 +733,20 @@ opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, inc
                             ) x
                             order by critvalue desc
                             ", sep=""))
+  
+  # fjerner de variable der overskrider exp() grænser
+  for (v in 1:nrow(optx_stats)) {
+    tryCatch(
+      {
+        optx_stats[v,"sizetest"] <- sqldf(paste("select avg(score) as gns_score from (select ", optx_stats[v,"sqlstring"], " as score from df) a"))
+      }, error=function(e){
+        optx_stats[v,"sizetest"] <- 0
+      }
+    )
+    
+  }
 
+  optx_stats <- optx_stats[is.na(optx_stats[,"sizetest"])==FALSE,]
 
   # Making optx_sql output SQL
   
