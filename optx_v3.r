@@ -41,8 +41,9 @@ imp.mean <- function(x) {
 } 
 
 
-opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, includeinteractions=TRUE) {
+opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, includeinteractions=TRUE,plots=FALSE) {
   
+  pdf("c:/temp/output.pdf")
   options(warn=-1)
   
   df <- sqldf(paste("select a.*, case when ", targetdef, " then 1 else 0 end as binarytarget from df a", sep=""))
@@ -112,31 +113,41 @@ opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, inc
   nomissvars <- nomissvars[!nomissvars %in% c('binarytarget')]
   
   for (k in missvars_num) {
-    varnamet <- colnames(df[k])
-    tmpmod_txt <- paste("tmp_mod <- glm(",k,"~.,data=df[,c(nomissvars,'",k,"')],family=gaussian)",sep="")
-    eval(parse(text=tmpmod_txt))
-    opttypen <- 'ASIS'
-    sqlstringen <- paste("case when ", k ," is null then (",glm_to_sql(tmp_mod), ") else ",colnames(df[k])," end", sep="")
-    tmp <- sqldf(paste("select binarytarget,",sqlstringen," as input from df"))
-    tmp_mod <- glm(binarytarget ~input, data=tmp, family=binomial())
-    critvaluen <- (1 - tmp_mod$deviance/tmp_mod$null.deviance)
-    newnamet <- paste(k,"_IMP2",sep="")
-    vartypen <- "NUM"
-    optx_stats[nrow(optx_stats)+1,] <- c(varnamet,opttypen, crittypen, critvaluen, newnamet, sqlstringen, vartypen)
+    tryCatch(
+      {
+        varnamet <- colnames(df[k])
+        tmpmod_txt <- paste("tmp_mod <- glm(",k,"~.,data=df[,c(nomissvars,'",k,"')],family=gaussian)",sep="")
+        eval(parse(text=tmpmod_txt))
+        opttypen <- 'ASIS'
+        sqlstringen <- paste("case when ", k ," is null then (",glm_to_sql(tmp_mod), ") else ",colnames(df[k])," end", sep="")
+        tmp <- sqldf(paste("select binarytarget,",sqlstringen," as input from df"))
+        tmp_mod <- glm(binarytarget ~input, data=tmp, family=binomial())
+        critvaluen <- (1 - tmp_mod$deviance/tmp_mod$null.deviance)
+        newnamet <- paste(k,"_IMP2",sep="")
+        vartypen <- "NUM"
+        optx_stats[nrow(optx_stats)+1,] <- c(varnamet,opttypen, crittypen, critvaluen, newnamet, sqlstringen, vartypen)
+      }, error=function(e){
+      }
+    )
   }
   
   for (k in missvars_bin) {
-    varnamet <- colnames(df[k])
-    tmpmod_txt <- paste("tmp_mod <- glm(",k,"~.,data=df[,c(nomissvars,'",k,"')],family=binomial)",sep="")
-    eval(parse(text=tmpmod_txt))
-    opttypen <- 'ASIS'
-    sqlstringen <- paste("case when ", k ," is null then (",glm_to_sql(tmp_mod), ") else ",colnames(df[k])," end", sep="")
-    tmp <- sqldf(paste("select binarytarget,",sqlstringen," as input from df"))
-    tmp_mod <- glm(binarytarget ~input, data=tmp, family=binomial())
-    critvaluen <- (1 - tmp_mod$deviance/tmp_mod$null.deviance)
-    newnamet <- paste(k,"_IMP2",sep="")
-    vartypen <- "NUM"
-    optx_stats[nrow(optx_stats)+1,] <- c(varnamet,opttypen, crittypen, critvaluen, newnamet, sqlstringen, vartypen)
+    tryCatch(
+      {
+        varnamet <- colnames(df[k])
+        tmpmod_txt <- paste("tmp_mod <- glm(",k,"~.,data=df[,c(nomissvars,'",k,"')],family=binomial)",sep="")
+        eval(parse(text=tmpmod_txt))
+        opttypen <- 'ASIS'
+        sqlstringen <- paste("case when ", k ," is null then (",glm_to_sql(tmp_mod), ") else ",colnames(df[k])," end", sep="")
+        tmp <- sqldf(paste("select binarytarget,",sqlstringen," as input from df"))
+        tmp_mod <- glm(binarytarget ~input, data=tmp, family=binomial())
+        critvaluen <- (1 - tmp_mod$deviance/tmp_mod$null.deviance)
+        newnamet <- paste(k,"_IMP2",sep="")
+        vartypen <- "NUM"
+        optx_stats[nrow(optx_stats)+1,] <- c(varnamet,opttypen, crittypen, critvaluen, newnamet, sqlstringen, vartypen)
+      }, error=function(e){
+      }
+    )
   }
   
   # CHEKKING ALL VARS AND HANDLE THEM ACCORDING TO ATTRIBUTE RULES
@@ -352,6 +363,12 @@ opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, inc
           
         }
       }  
+      
+      # Plots partial bar graphs - on numeric input vars
+      if (plots==TRUE){
+        graph_num_grouped(varnamet,df,"binarytarget")
+      }
+      
     } else { #..else non numeric from here..
       if ((as.numeric(tabel2[1,i])<6)&(as.numeric(tabel2[1,i])>1))
       {
@@ -752,9 +769,9 @@ opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, inc
   
   for (l in 1:nrow(optx_stats)) { # komprimerer newnames så de er maks 30 char lang
     v <- c(unlist(strsplit(optx_stats[l,"newname"], split="_")))
-    if (nchar(optx_stats[l,"newname"])>29) 
+    if (nchar(optx_stats[l,"newname"])>27) 
       {
-        optx_stats[l,"newname"] <- substr(paste(substr(v,1,4),collapse ="_"),1,30)  
+        optx_stats[l,"newname"] <- paste(substr(paste(substr(v,1,4),collapse ="_"),1,28),l,sep="")  
       }
   }
 
@@ -798,12 +815,14 @@ opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, inc
       optx_stats <- sqldf(paste("select a.*, case when newname in ('",variables,"') then 1 else 0 end as lasso from optx_stats a", sep=""))
       optx_stats2 <- sqldf("select * from optx_stats where lasso=1")
     }, error=function(e){
-      optx_stats2 <- optx_stats
       print("Error building Lasso/Plastic Net regression for variable selection. Most likely memory problem. Therefor all vars have been included in SQL statement.")
     }
   )
+  if (exists("optx_stats2")==FALSE) {
+    optx_stats2 <- optx_stats
+  }
 
-  
+    
   for (m in 1:nrow(optx_stats2)) {
     if(m==1)
     {
@@ -830,12 +849,22 @@ opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, inc
   
   print("Important: Resulting SQL may cause error if variables do not have same type in db as they do in R. This may especially be a problem if data is imported from Oracle")
   
+  if (plots==TRUE) {
+    print("Partial plots can be found in c:/temp/output.pdf")
+  }
+  
   options(warn=0)
+  
+  if (exists("fit")==FALSE){
+    fit <- NULL
+  }
+  
+  dev.off()
   
   outs <-list(optx_sql, optx_sql_score, fit)
   names(outs) <- c("optx_sql", "optx_sql_score","optx_plasticnet_model")
   return(outs)
-  }
+}
 
 rpart_to_sql <- function(model,df) {
   library(rattle)
@@ -1072,4 +1101,100 @@ glm_to_sql <- function(glmmodel) {
 
 
 
-
+graph_num_grouped <- function(varnavn,df,targetvar){
+  
+  if (varnavn!=targetvar){
+    grpsize <- ceiling(nrow(df)/300)
+    if(grpsize>20)
+    {
+      grpsize <- 20
+    } 
+    
+    d <- sqldf(paste("select ", varnavn, ",", targetvar, " as binarytarget from df order by", varnavn))
+    d$RANKVAR <- ceiling(grpsize*rank(d[varnavn], ties.method= "first")/nrow(df))
+    
+    gns <- sqldf(paste("select RANKVAR, min(", varnavn, ") as minvar, max(", varnavn, ") as maxvar,  
+                       avg(binarytarget) as target_avg, count(*) as count, stdev(binarytarget) as sd_target 
+                       from d 
+                       where ", varnavn, " is not null
+                       group by RANKVAR 
+                       order by RANKVAR"))
+    
+    gns[,7] <- 0
+    colnames(gns)[7] <- "sd_common"
+    
+    gns[,8] <- 0
+    colnames(gns)[8] <- "sd_sd_common"
+    
+    gns[,9] <- 0
+    colnames(gns)[9] <- "SAKyhi"
+    
+    sd_target_all <- sd(unlist(df[targetvar]))
+    mean_target_all <- mean(unlist(df[targetvar]))
+    count_target_all <- nrow(df)
+    
+    cat_stats <- data.frame(varname=character(0), #name of variable
+                            n_groups=numeric(0),
+                            critvalue=numeric(0), #value of optimzation criteria
+                            sqlstring=character(0), stringsAsFactors=F)
+    
+    # ny gruppering: iterativt finde dem, der matcher bedst, grupper og fortsæt indtil 2 grupper tilbage
+    while (nrow(gns)>1) {
+      
+      #laver SQL
+      sql <- ""
+      for (m in 1:nrow(gns)) {
+        sql <- paste(sql," when ", varnavn, " <= ", gns[m,"maxvar"]," then '",varnavn,"_Grp",m,"_lteq",gns[m,"maxvar"],"'",sep="")
+      }
+      sql <- paste("case ",sql," else '",varnavn,"_Grp_NA' end ",sep="")
+      
+      for (m in 1:nrow(gns)) {
+        if(m==1)
+        {
+          gns[m,7] <- NA
+          gns[m,8] <- NA
+          gns[m,9] <- gns[m,5]*(gns[m,4]-mean_target_all)*(gns[m,4]-mean_target_all)
+        } else {    
+          gns[m,7] <- sqrt(((gns[m-1,5]-1)*gns[m-1,6]*gns[m-1,6] + (gns[m,5]-1)*gns[m,6]*gns[m,6])/(gns[m-1,5]+gns[m,5]-2))  
+          gns[m,8] <- ((gns[m,6]-gns[m,7])^2 + (gns[m-1,6]-gns[m,7])^2)/2 # beregner "standardafvigelse mellem de to stds og den fælles stdev
+          gns[m,9] <- gns[m,5]*(gns[m,4]-mean_target_all)*(gns[m,4]-mean_target_all)
+        }
+      }
+      
+      gns <- mutate(gns, diffrank = rank(sd_sd_common, ties.method = "first"))
+      
+      for (m in 1:nrow(gns)) {
+        if(gns[m,"diffrank"]==1)
+        {
+          gns[m-1,"maxvar"] <- gns[m,"maxvar"]  
+          gns[m-1,"target_avg"] <- (gns[m,"target_avg"]*gns[m,"count"] + gns[m-1,"target_avg"]*gns[m-1,"count"])/(gns[m,"count"]+gns[m-1,"count"]) 
+          gns[m-1,"count"] <- gns[m,"count"]+gns[m-1,"count"]
+          gns[m-1,"sd_target"] <- gns[m,"sd_common"]
+        }
+      }
+      
+      cat_stats[nrow(cat_stats)+1,] <- c(varnavn,nrow(gns),sum(gns[9])/(sd_target_all*sd_target_all*count_target_all), sql)
+      
+      gns <- sqldf("select * from gns where diffrank<>1") #fjerner diffrank=1 efter at denne er slået sammen med rækken ovenover.
+      
+    }  
+    
+    d <- sqldf("select a.varname, a.n_groups, a.critvalue, a.sqlstring from cat_stats a 
+               where critvalue > (select max(critvalue)*0.9 from cat_stats) order by a.critvalue")[1,]
+    
+    if (length(unique(df[,varnavn]))>10) {
+      bob <- sqldf(paste("select ", d[1,"sqlstring"], " as input, avg(",targetvar,") as avg_target, count(*) as antal 
+                         from df group by ", d[1,"sqlstring"]))
+    } else {
+      bob <- sqldf(paste("select '_'||", varnavn, " as input, avg(",targetvar,") as avg_target, count(*) as antal 
+                         from df group by '_'||", varnavn))
+    }
+    
+    titel <- paste("Avg target by ",varnavn,"(grouped)")
+    
+    partialplot <-   ggplot(bob, aes(x=input, y=avg_target)) + geom_bar(stat='identity', fill="#FF9999") + 
+      ggtitle(titel) + coord_flip() + theme(plot.title = element_text(size=22)) +
+      geom_text(aes(label=paste("n=",antal)))
+    print(partialplot)
+    }
+}
