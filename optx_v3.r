@@ -43,7 +43,7 @@ imp.mean <- function(x) {
 
 opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, includeinteractions=TRUE,plots=FALSE) {
   
-  pdf("c:/temp/output.pdf")
+  pdf("c:/temp/output.pdf",width=20)
   options(warn=-1)
   
   df <- sqldf(paste("select a.*, case when ", targetdef, " then 1 else 0 end as binarytarget from df a", sep=""))
@@ -191,7 +191,12 @@ opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, inc
         test$probrank <- ceiling(100*rank(test[,1], ties.method= "min")/nrow(df)) 
         colnames(test) <- c("var","rank")
         test <- sqldf("select min(var) as minvar, max(var) as maxvar from test where rank between 2 and 97")
-        replacetxt <- paste("(case when ",colnames(df[i])," is null then ",varmean, " when ",colnames(df[i]),"<",test[1,1]," then ",test[1,1]," when ",colnames(df[i]),">",test[1,2]," then ",test[1,2], " else ",colnames(df[i])," end)", sep="")
+        if ((is.na(test[1,1])==FALSE)&(is.na(test[1,2])==FALSE))
+        {
+          replacetxt <- paste("(case when ",colnames(df[i])," is null then ",varmean, " when ",colnames(df[i]),"<",test[1,1]," then ",test[1,1]," when ",colnames(df[i]),">",test[1,2]," then ",test[1,2], " else ",colnames(df[i])," end)", sep="")
+        } else {
+          replacetxt <- paste("(case when ",colnames(df[i])," is null then ",varmean, " else ",colnames(df[i])," end)", sep="")       
+        }
       } else {
         replacetxt <- paste("(case when ",colnames(df[i])," is null then ",varmean, " else ",colnames(df[i])," end)", sep="")        
       } 
@@ -483,6 +488,11 @@ opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, inc
         vartypen <- "CLASS"
         optx_stats[nrow(optx_stats)+1,] <- c(varnavn,"GRP", crittypen, d$critvalue[1], newnamet, d$sqlstring[1], vartypen)
       }  
+      # Plots partial bar graphs - on categorical input vars
+      if (plots==TRUE)
+      {
+        graph_categorical_grouped(varnamet,df,"binarytarget")
+      }
     }
   }
   # SLUT PÅ ENKELT EFFEKTER
@@ -860,8 +870,8 @@ opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, inc
   }
   
   dev.off()
-  
-  outs <-list(optx_sql, optx_sql_score, fit)
+
+    outs <-list(optx_sql, optx_sql_score, fit)
   names(outs) <- c("optx_sql", "optx_sql_score","optx_plasticnet_model")
   return(outs)
 }
@@ -1179,22 +1189,139 @@ graph_num_grouped <- function(varnavn,df,targetvar){
       
     }  
     
-    d <- sqldf("select a.varname, a.n_groups, a.critvalue, a.sqlstring from cat_stats a 
-               where critvalue > (select max(critvalue)*0.9 from cat_stats) order by a.critvalue")[1,]
+    cat_stats$critvalue <- as.numeric(cat_stats$critvalue)
+    cat_stats$n_groups <- as.numeric(cat_stats$n_groups)
     
+    d <- sqldf("select a.varname, a.n_groups, a.critvalue, a.sqlstring from cat_stats a 
+               where critvalue > (select max(critvalue)*0.9 from cat_stats where n_groups<10 ) and n_groups<10 order by a.critvalue")[1,]
+
     if (length(unique(df[,varnavn]))>10) {
       bob <- sqldf(paste("select ", d[1,"sqlstring"], " as input, avg(",targetvar,") as avg_target, count(*) as antal 
-                         from df group by ", d[1,"sqlstring"]))
+                         from df, (select count(*) as n_ialt from df) group by ", d[1,"sqlstring"], " having antal>(n_ialt*0.02)"))
     } else {
       bob <- sqldf(paste("select '_'||", varnavn, " as input, avg(",targetvar,") as avg_target, count(*) as antal 
-                         from df group by '_'||", varnavn))
+                         from df, (select count(*) as n_ialt from df) group by '_'||", varnavn, " having antal>(n_ialt*0.02)"))
     }
     
     titel <- paste("Avg target by ",varnavn,"(grouped)")
     
-    partialplot <-   ggplot(bob, aes(x=input, y=avg_target)) + geom_bar(stat='identity', fill="#FF9999") + 
+    if ((nrow(bob)>8)&(nrow(bob)<25)){
+      partialplot <-   ggplot(bob, aes(x=input, y=avg_target)) + geom_bar(stat='identity', fill="#FF9999") + 
       ggtitle(titel) + coord_flip() + theme(plot.title = element_text(size=22)) +
       geom_text(aes(label=paste("n=",antal)))
-    print(partialplot)
+      print(partialplot)
+    } else if ((nrow(bob)>1)&(nrow(bob)<9)){
+      partialplot <-   ggplot(bob, aes(x=input, y=avg_target)) + geom_bar(stat='identity', fill="#FF9999") + 
+      ggtitle(titel) + theme(plot.title = element_text(size=22)) +
+      geom_text(aes(label=paste("n=",antal)))
+      print(partialplot)
+    }
+    
+    }
+}
+
+
+graph_categorical_grouped <- function(varnavn,df,targetvar){
+  
+  if ((varnavn!=targetvar)&(length(unique(df[,varnavn]))<(nrow(df)/20))){
+    # Laver initreftable for at gruppere kategorier med n<50 i "other" kategori
+    initreftable <- sqldf(paste("select  ",varnavn, "  as var0a, case when count(*) < 50 then 'Other' else ",varnavn, " END AS var0,count(*) as count from df Group by ",varnavn)) 
+    
+    sql <- paste("select b.var0, avg(a.binarytarget) as target_avg, count(*) as count, stdev(a.binarytarget) as sd_target
+                 from df a
+                 join initreftable b on a.",varnavn, " = b.var0a
+                 group by b.var0
+                 order by target_avg", sep="")
+    gns <- sqldf(sql)
+    
+    gns[,5] <- 0
+    colnames(gns)[5] <- "sd_common"
+    
+    gns[,6] <- 0
+    colnames(gns)[6] <- "sd_sd_common"
+    
+    gns[,7] <- 0
+    colnames(gns)[7] <- "SAKyhi"
+    
+    sd_target_all <- sd(unlist(df["binarytarget"]))
+    mean_target_all <- mean(unlist(df["binarytarget"]))
+    count_target_all <- nrow(df)
+    
+    cat_stats <- data.frame(varname=character(0), #name of variable
+                            n_groups=numeric(0),
+                            critvalue=numeric(0), #value of optimzation criteria
+                            sqlstring=character(0), stringsAsFactors=F)
+    
+    # ny gruppering: iterativt finde dem, der matcher bedst, grupper og fortsæt indtil 4 grupper tilbage
+    sql <- ""
+    while (nrow(gns)>1) {
+      
+      for (i in 1:nrow(gns)) {
+        if(i==1)
+        {
+          gns[i,5] <- NA
+          gns[i,6] <- NA
+          gns[i,7] <- gns[i,3]*(gns[i,2]-mean_target_all)*(gns[i,2]-mean_target_all)
+        } else {    
+          gns[i,5] <- sqrt(((gns[i-1,3]-1)*gns[i-1,4]*gns[i-1,4] + (gns[i,3]-1)*gns[i,4]*gns[i,4])/(gns[i-1,3]+gns[i,3]-2))  
+          gns[i,6] <- ((gns[i,4]-gns[i,5])^2 + (gns[i-1,4]-gns[i,5])^2)/2 # beregner "standardafvigelse mellem de to stds og den fælles stdev
+          gns[i,7] <- gns[i,3]*(gns[i,2]-mean_target_all)*(gns[i,2]-mean_target_all)
+        }
+      }
+      
+      gns <- mutate(gns, diffrank = rank(sd_sd_common, ties.method = "first"))
+      
+      for (i in 1:nrow(gns)) {
+        if(gns[i,"diffrank"]==1)
+        {
+          gns[i-1,"var0"] <- paste(gns[i,"var0"],"','",gns[i-1,"var0"],sep="")  
+          gns[i-1,"target_avg"] <- (gns[i,"target_avg"]*gns[i,"count"] + gns[i-1,"target_avg"]*gns[i-1,"count"])/(gns[i,"count"]+gns[i-1,"count"]) 
+          gns[i-1,"count"] <- gns[i,"count"]+gns[i-1,"count"]
+          gns[i-1,"sd_target"] <- gns[i,"sd_common"]
+        }
+      }
+      
+      cat_stats[nrow(cat_stats)+1,] <- c(varnavn,nrow(gns),sum(gns[7])/(sd_target_all*sd_target_all*count_target_all), sql)
+      
+      gns <- sqldf("select * from gns where diffrank<>1") #fjerner diffrank=1 efter at denne er slået sammen med rækken ovenover.
+      
+      #laver SQL
+      sql <- ""
+      for (i in 1:nrow(gns)) {
+        sql <- paste(sql," when ", varnavn, " in ('", gns[i,"var0"],"') then '",gsub("'","",gns[i,"var0"]),"' ",sep="")
+      }
+      sql <- paste("case ",sql," else 'NA' end",sep="")
+      
+    }  
+    cat_stats[nrow(cat_stats)+1,] <- c(varnavn,nrow(gns),sum(gns[7])/(sd_target_all*sd_target_all*count_target_all), sql)
+
+    cat_stats$critvalue <- as.numeric(cat_stats$critvalue)
+    cat_stats$n_groups <- as.numeric(cat_stats$n_groups)
+        
+    d <- sqldf("select a.varname, a.n_groups, a.critvalue, a.sqlstring from cat_stats a 
+               where critvalue > (select max(critvalue)*0.95 from cat_stats where n_groups<10 ) and n_groups<10 and varname<>'binarytarget' order by a.critvalue")[1,]
+    
+    if (length(unique(df[,varnavn]))>10) {
+      bob <- sqldf(paste("select ", d[1,"sqlstring"], " as input, avg(",targetvar,") as avg_target, count(*) as antal 
+                         from df, (select count(*) as n_ialt from df) group by ", d[1,"sqlstring"]," having antal>(n_ialt*0.02)"))
+    } else {
+      bob <- sqldf(paste("select ", varnavn, " as input, avg(",targetvar,") as avg_target, count(*) as antal 
+                         from df, (select count(*) as n_ialt from df) group by ", varnavn, "having antal>(n_ialt*0.02)"))
+    }
+    
+    titel <- paste("Avg target by ",varnavn,"(grouped)")
+    
+    if ((nrow(bob)>8)&(nrow(bob)<25)){
+      partialplot <-   ggplot(bob, aes(x=paste(substr(input,1,30),"..."), y=avg_target)) + geom_bar(stat='identity', fill="#FF9999") + 
+      ggtitle(titel) + coord_flip() + theme(plot.title = element_text(size=22)) +
+      geom_text(aes(label=paste("n=",antal)))
+      print(partialplot)
+    } else if ((nrow(bob)>1)&(nrow(bob)<9)){
+      partialplot <-   ggplot(bob, aes(x=paste(substr(input,1,30),"..."), y=avg_target)) + geom_bar(stat='identity', fill="#FF9999") + 
+      ggtitle(titel) + theme(plot.title = element_text(size=22)) +
+      geom_text(aes(label=paste("n=",antal)))
+      print(partialplot)
+      }
+    
     }
 }
