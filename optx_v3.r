@@ -154,7 +154,7 @@ opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, inc
   for(i in colnames(df)) {
 
     varnamet <- colnames(df[i])
-    #print(i)
+    print(i)
     
     if (is.numeric(df[,i])) {
       
@@ -489,11 +489,19 @@ opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, inc
         vartypen <- "CLASS"
         optx_stats[nrow(optx_stats)+1,] <- c(varnavn,"GRP", crittypen, d$critvalue[1], newnamet, d$sqlstring[1], vartypen)
       }  
+      
       # Plots partial bar graphs - on categorical input vars
       if (plots==TRUE)
       {
-        graph_categorical_grouped(varnamet,df,"binarytarget",targetvar)
+        tryCatch(
+          {
+            graph_categorical_grouped(varnamet,df,"binarytarget",targetvar)
+          }, error=function(e){
+            print(paste("Error when plotting graph for",varnamet,"variable."))
+          }
+        )
       }
+      
     }
   }
   # SLUT PÅ ENKELT EFFEKTER
@@ -1033,7 +1041,7 @@ gini_curve <- function(df,modelobj,targetdef,plotroc=FALSE){
       ggtitle(paste("GINI (captured response). (", modelobj$method,") gini=",format(gc.gini,digits=3), sep=""))
     print(gc.giniplot)
     
-    gc.liftplot <-   ggplot(gc.graphdata, aes(x, y = value, color = Graphs)) + 
+    gc.liftplot <- ggplot(gc.graphdata, aes(x, y = value, color = Graphs)) + 
       geom_line(aes(y = lift, col = "Lift")) + 
       geom_line(aes(y = lift_acc, col = "AccLift"))  +
       xlab("Score rank (desc)") + ylab("Lift") +
