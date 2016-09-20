@@ -881,7 +881,7 @@ opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, inc
   dev.off()
 
   outs <-list(optx_sql, optx_sql_score, fit)
-  names(outs) <- c("optx_sql", "optx_sql_score","optx_elasticnet_model")
+  names(outs) <- c("optx_sql", "optx_sql_score","optx_plasticnet_model")
   return(outs)
 }
 
