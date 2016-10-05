@@ -64,6 +64,8 @@ opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, inc
   
   #targetvar <- substr(targetdef,1,regexpr('=', targetdef)-1) # erstattet af nedenstående
   targetvar <- substr(targetdef,1,str_locate(targetdef, "[ <=>]{1,}")[1]-1)
+  targetvar <- ifelse(is.na(targetvar),targetdef,targetvar)
+  
   df[targetvar] <- NULL
   
   df$random_ <- NULL
