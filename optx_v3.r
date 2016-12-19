@@ -5,7 +5,6 @@ library(sqldf)
 library(stringr)
 library(rpart)
 library(plyr)
-library(rattle)
 library("ggplot2")
 library("psych")
 library("glmnet")
@@ -889,7 +888,6 @@ opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, inc
 }
 
 rpart_to_sql <- function(model,df) {
-  library(rattle)
   
   rpart.sql.value <- "case "
   rpart.sql.node <- "case "
