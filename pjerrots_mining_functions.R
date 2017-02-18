@@ -105,8 +105,6 @@ samp <- function(df,samp_n=1000, method="random"){
   return(df)
 }
 
-df2 <- samp(df,2000)
-
 # calculates r-squared on x,y value pairs
 calc.r2 <- function(y,x,df = NULL){
   modtext <- paste("tmpmod <- glm(binarytarget ~",x,", data=df, family=gaussian)")
