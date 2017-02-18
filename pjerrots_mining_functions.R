@@ -92,7 +92,7 @@ samp <- function(df,samp_n=1000, method="random"){
     df$rnd <- NULL
   }
   if (method=="random_return") {
-    rnd <- round(runif(nrow(df),0,nrow(df)),0)
+    rnd <- round(runif(samp_n,0,nrow(df)),0)
     df <- df[rnd,]
     rnd <- NULL
   }
@@ -104,6 +104,8 @@ samp <- function(df,samp_n=1000, method="random"){
   }
   return(df)
 }
+
+df2 <- samp(df,2000)
 
 # calculates r-squared on x,y value pairs
 calc.r2 <- function(y,x,df = NULL){
