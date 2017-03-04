@@ -5,7 +5,7 @@
 #calc.r2 : calc r2
 #rpart_to_sql
 #gini_curve : old gini calc
-#glm_to_sql
+#glm_to_sql 
 #graph_num_grouped : graphs var against target
 #graph_categorical_grouped : graphs var against target
 #str_replace : replaces str pattern in string
@@ -14,6 +14,7 @@
 
 #############################################################
 # calculates gini and auc metrics from x,y value pairs. INclude ROC curve
+
 giniauc <- function(df,x,y,plotroc=FALSE){
   library("ggplot2")
   library("sqldf")
@@ -23,59 +24,123 @@ giniauc <- function(df,x,y,plotroc=FALSE){
   df <- df[,c(x,y)]
   colnames(df) <- c("x","y")
   
-  groups <- length(unique(df$x))
-  if (groups>100) {
-    groups <- 100
-  }
+  if (is.character(df$x)) df$x <- as.factor(df$x)
   
-  df$xrank <- ceiling(groups*rank(df$x, ties.method= "min")/nrow(df)) 
-  gc.graphdata <- sqldf(paste("select xrank, count(*) as n,
-                              avg(x) as avg_x, avg(y) as avg_target, sum(y) as sum_target, 
-                              1.0*sum(y)/target_total as captured_share,
-                              avg(y)/avg_target_total as lift
-                              from df
-                              ,(select sum(y) as target_total, avg(y) as avg_target_total from df) 
-                              group by xrank, target_total order by xrank desc"))
+  if (is.numeric(df$x)) {
+      groups <- length(unique(df$x))
+      if (groups>100) {
+        groups <- 100
+      }
+      
+      df$xrank <- ceiling(groups*rank(df$x, ties.method= "min")/nrow(df)) 
+      gc.graphdata <- sqldf(paste("select xrank, count(*) as n,
+                                  avg(x) as avg_x, avg(y) as avg_target, sum(y) as sum_target, 
+                                  1.0*sum(y)/target_total as captured_share,
+                                  avg(y)/avg_target_total as lift
+                                  from df
+                                  ,(select sum(y) as target_total, avg(y) as avg_target_total from df) 
+                                  group by xrank, target_total 
+                                  order by xrank desc"))
+      for (i in 1:nrow(gc.graphdata)) {
+        #gc.graphdata[i,"x"] <- 1.0*i/nrow(gc.graphdata)
+        if(i==1) {
+          gc.graphdata[i,"captured_share_acc"] <- gc.graphdata[i,"captured_share"]
+          gc.graphdata[i,"n_acc"] <- gc.graphdata[i,"n"] 
+          gc.graphdata[i,"x"] <- 1.0*gc.graphdata[i,"n_acc"]/sum(gc.graphdata[,"n"])
+          gc.graphdata[i,"area"] <- 0.5*gc.graphdata[i,"captured_share_acc"]*gc.graphdata[i,"x"]
+        } else {   
+          gc.graphdata[i,"captured_share_acc"] <- gc.graphdata[i-1,"captured_share_acc"] + gc.graphdata[i,"captured_share"]
+          gc.graphdata[i,"n_acc"] <- (gc.graphdata[i-1,"n_acc"]+gc.graphdata[i,"n"])   
+          gc.graphdata[i,"x"] <- 1.0*gc.graphdata[i,"n_acc"]/sum(gc.graphdata[,"n"])
+          gc.graphdata[i,"area"] <- gc.graphdata[i-1,"captured_share_acc"]*(gc.graphdata[i,"x"]-gc.graphdata[i-1,"x"]) +  0.5*(gc.graphdata[i,"captured_share_acc"]-gc.graphdata[i-1,"captured_share_acc"])*(gc.graphdata[i,"x"]-gc.graphdata[i-1,"x"])
+        }
+      }
+      gc.graphdata[,"lift_acc"] <- gc.graphdata[,"captured_share_acc"]/gc.graphdata[,"x"]
+      
+      gc.auc <- sum(gc.graphdata$area)
+      gc.gini <- (gc.auc-0.5)/(0.5-mean(df$y)/2)  
+      
+      if (plotroc){
+        gc.graphdata[nrow(gc.graphdata)+1,"x"] <- 0
+        gc.graphdata[nrow(gc.graphdata),"captured_share_acc"] <- 0
+        
+        gc.giniplot <- ggplot(data=gc.graphdata, aes(x=x)) +
+          geom_line(aes(y=captured_share_acc), color="red") +
+          geom_line(aes(y=x)) +
+          expand_limits(y=0) +
+          xlab("Score rank (desc)") + ylab("Captured response (accumulated)") +
+          ggtitle(paste("GINI (captured response). gini=",format(gc.gini,digits=3), "; AUC=",format(gc.auc,digits=3), sep=""))
+        print(gc.giniplot)
+        
+        gc.liftplot <- ggplot(gc.graphdata, aes(x, y = value, color = Graphs)) + 
+          geom_line(aes(y = lift, col = "Lift")) + 
+          geom_line(aes(y = lift_acc, col = "AccLift"))  +
+          xlab("Score rank (desc)") + ylab("Lift") +
+          ggtitle(paste("Lift. gini=",format(gc.gini,digits=3), "; AUC=",format(gc.auc,digits=3), sep="")) +
+          scale_colour_manual(values=c("grey", "blue"))
+        print(gc.liftplot)
+      }
+      
+  } else if (is.factor(df$x)) {
+      gc.graphdata <- sqldf(paste("select x, count(*) as n, 1.0*count(*)/nialt as n_share,
+                                  avg(y) as avg_target, sum(y) as sum_target, 
+                                  1.0*sum(y)/target_total as captured_share,
+                                  avg(y)/avg_target_total as lift
+                                  from df
+                                  ,(select sum(y) as target_total, avg(y) as avg_target_total, count(*) as nialt from df) 
+                                  group by x, target_total, nialt 
+                                  order by avg(y) desc"))
+      gc.graphdata <- na.omit(gc.graphdata)
+
+      for (i in 1:nrow(gc.graphdata)) {
+        #gc.graphdata[i,"x"] <- 1.0*i/nrow(gc.graphdata)
+        if(i==1) {
+          gc.graphdata[i,"captured_share_acc"] <- gc.graphdata[i,"captured_share"]
+          gc.graphdata[i,"n_acc"] <- gc.graphdata[i,"n"] 
+          #gc.graphdata[i,"x"] <- 1.0*gc.graphdata[i,"n_acc"]/sum(gc.graphdata[,"n"])
+          gc.graphdata[i,"area"] <-gc.graphdata[i,"captured_share_acc"]*gc.graphdata[i,"n_share"]
+          gc.graphdata[i,"n_share_accu"] <- gc.graphdata[i,"n_share"]
+        } else {   
+          gc.graphdata[i,"captured_share_acc"] <- gc.graphdata[i-1,"captured_share_acc"] + gc.graphdata[i,"captured_share"]
+          gc.graphdata[i,"n_acc"] <- (gc.graphdata[i-1,"n_acc"]+gc.graphdata[i,"n"])   
+          #gc.graphdata[i,"x"] <- 1.0*gc.graphdata[i,"n_acc"]/sum(gc.graphdata[,"n"])
+          gc.graphdata[i,"area"] <-gc.graphdata[i,"captured_share_acc"]*gc.graphdata[i,"n_share"]
+          gc.graphdata[i,"n_share_accu"] <- gc.graphdata[i,"n_share"] + gc.graphdata[i-1,"n_share_accu"]
+        }
+      }
+      gc.graphdata[,"lift_acc"] <- gc.graphdata[,"captured_share_acc"]/gc.graphdata[,"n_share_accu"]
+      
+      gc.auc <- sum(gc.graphdata$area)
+      gc.gini <- (gc.auc-0.5)/(0.5-mean(df$y)/2)  
+      
+      #allarea <- (1-mean(df$y)) + 0.5*(mean(df$y))
+      #gc.gini <- (gc.auc-0.5)/(allarea-0.5)
+      
+      if (plotroc){
+        gc.graphdata[nrow(gc.graphdata)+1,"n_share_accu"] <- 0
+        gc.graphdata[nrow(gc.graphdata),"captured_share_acc"] <- 0
+        
+        gc.giniplot <- ggplot(data=gc.graphdata, aes(x=n_share_accu)) +
+          geom_line(aes(y=captured_share_acc), color="red") +
+          geom_line(aes(y=n_share_accu)) +
+          expand_limits(y=0) +
+          xlab("Score rank (desc)") + ylab("Captured response (accumulated)") +
+          ggtitle(paste("GINI (captured response). gini=",format(gc.gini,digits=3), "; AUC=",format(gc.auc,digits=3), sep=""))
+        print(gc.giniplot)
+        
+        gc.liftplot <- ggplot(gc.graphdata, aes(n_share_accu, y = value, color = Graphs)) + 
+          geom_line(aes(y = lift, col = "Lift")) + 
+          geom_line(aes(y = lift_acc, col = "AccLift"))  +
+          xlab("Score rank (desc)") + ylab("Lift") +
+          ggtitle(paste("Lift. gini=",format(gc.gini,digits=3), "; AUC=",format(gc.auc,digits=3), sep="")) +
+          scale_colour_manual(values=c("grey", "blue"))
+        print(gc.liftplot)
+      }
+
+  } 
   
-  for (i in 1:nrow(gc.graphdata)) {
-    #gc.graphdata[i,"x"] <- 1.0*i/nrow(gc.graphdata)
-    if(i==1) {
-      gc.graphdata[i,"captured_share_acc"] <- gc.graphdata[i,"captured_share"]
-      gc.graphdata[i,"n_acc"] <- gc.graphdata[i,"n"] 
-      gc.graphdata[i,"x"] <- 1.0*gc.graphdata[i,"n_acc"]/sum(gc.graphdata[,"n"])
-      gc.graphdata[i,"area"] <- 0.5*gc.graphdata[i,"captured_share_acc"]*gc.graphdata[i,"x"]
-    } else {   
-      gc.graphdata[i,"captured_share_acc"] <- gc.graphdata[i-1,"captured_share_acc"] + gc.graphdata[i,"captured_share"]
-      gc.graphdata[i,"n_acc"] <- (gc.graphdata[i-1,"n_acc"]+gc.graphdata[i,"n"])   
-      gc.graphdata[i,"x"] <- 1.0*gc.graphdata[i,"n_acc"]/sum(gc.graphdata[,"n"])
-      gc.graphdata[i,"area"] <- gc.graphdata[i-1,"captured_share_acc"]*(gc.graphdata[i,"x"]-gc.graphdata[i-1,"x"]) +  0.5*(gc.graphdata[i,"captured_share_acc"]-gc.graphdata[i-1,"captured_share_acc"])*(gc.graphdata[i,"x"]-gc.graphdata[i-1,"x"])
-    }
-  }
-  gc.graphdata[,"lift_acc"] <- gc.graphdata[,"captured_share_acc"]/gc.graphdata[,"x"]
-  
-  gc.auc <- sum(gc.graphdata$area)
-  gc.gini <- (gc.auc-0.5)/(0.5-mean(df$y)/2)  
-  
-  if (plotroc){
-    gc.graphdata[nrow(gc.graphdata)+1,"x"] <- 0
-    gc.graphdata[nrow(gc.graphdata),"captured_share_acc"] <- 0
     
-    gc.giniplot <- ggplot(data=gc.graphdata, aes(x=x)) +
-      geom_line(aes(y=captured_share_acc), color="red") +
-      geom_line(aes(y=x)) +
-      expand_limits(y=0) +
-      xlab("Score rank (desc)") + ylab("Captured response (accumulated)") +
-      ggtitle(paste("GINI (captured response). gini=",format(gc.gini,digits=3), "; AUC=",format(gc.auc,digits=3), sep=""))
-    print(gc.giniplot)
-    
-    gc.liftplot <- ggplot(gc.graphdata, aes(x, y = value, color = Graphs)) + 
-      geom_line(aes(y = lift, col = "Lift")) + 
-      geom_line(aes(y = lift_acc, col = "AccLift"))  +
-      xlab("Score rank (desc)") + ylab("Lift") +
-      ggtitle(paste("Lift. gini=",format(gc.gini,digits=3), "; AUC=",format(gc.auc,digits=3), sep="")) +
-      scale_colour_manual(values=c("grey", "blue"))
-    print(gc.liftplot)
-  }
+
   
   #  options(warn=0)
   
@@ -351,6 +416,10 @@ glm_to_sql <- function(glmmodel) {
 
 # creates nice graph on numerical variable distribution combined with avg. target values
 graph_num_grouped <- function(df, varnavn,targetvar, targetvartext="TARGET"){
+  library("sqldf")
+  library("dplyr")
+  library("ggplot2")
+  
   if (varnavn!=targetvar){
     grpsize <- ceiling(nrow(df)/300)
     if(grpsize>20)
@@ -624,4 +693,199 @@ starsplit <- function(streng,splitstr="*") {
 }
 
 
+bintarget_graph <- function(df, x, y, barwidth=10, pdf=FALSE, pdfname=NULL) {
+  library(reshape2)
+  library(ggplot2)
+  library(sqldf)
+  
+  df <- df[, c(x, y)]
+  colnames(df) <- c("x","y")
+  if (is.factor(df[,c("x")])) {
+    
+  } else if (is.numeric(df[,c("x")])) {
+    
+    df[,c("x")] <- as.numeric(df[,c("x")])
+    df$xmin <- ave(df$x, cut(df$x,12), FUN=min)
+    df$xmax <- ave(df$x, cut(df$x,12), FUN=max)
+    df$xCenter <- ave(df$x, cut(df$x,12), FUN=median)
+    df2 <-   sqldf(paste("select xCenter, xmin+(xmax-xmin)/2 as xCenter2, avg(x) as avg_x, count(*) as dist, n as total, avg(y) as y_share 
+                         from df, (select count(*) as n from df) a 
+                         group by xCenter, xmin, xmax order by xCenter"))
+    df2$share <- df2$dist/df2$total
+    
+    plot <- ggplot(data=df2, aes(x=xCenter2, y=share)) + #fill=y_share)) +
+      geom_bar(colour="grey", fill='lightgrey', stat="identity", width=barwidth) +
+      geom_smooth(se=FALSE, method='loess', linetype='dotted') +
+      geom_line(aes(y=y_share), size=2, stat = "identity", position = "identity", colour="green") +
+      xlab(paste(x)) + ylab("Share [0;1]") +
+      ggtitle(paste("Share of '",y,"'\n - by '",x,"' \n(incl. distribution of '",x,"')",sep="")) +
+      theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"),
+            axis.text.x=element_text(size=15),
+            axis.title.x = element_text(size=14),
+            axis.title.y = element_text(size=14)
+      )
+    
+  } else {
+    warning <- "Error: x is not numeric of factor."
+  }
+  print(plot)
+  
+}
+
+
+numtarget_graph <- function(df, x, y, barwidth=10, pdf=FALSE, pdfname=NULL) {
+  library(reshape2)
+  library(ggplot2)
+  library(sqldf)
+  
+  df <- df[, c(x, y)]
+  colnames(df) <- c("x","y")
+  if (is.factor(df[,c("x")])) {
+    
+  } else if (is.numeric(df[,c("x")])) {
+    
+    df[,c("x")] <- as.numeric(df[,c("x")])
+    df$xmin <- ave(df$x, cut(df$x,12), FUN=min)
+    df$xmax <- ave(df$x, cut(df$x,12), FUN=max)
+    df$xCenter <- ave(df$x, cut(df$x,12), FUN=median)
+    df2 <-   sqldf(paste("select xCenter, xmin+(xmax-xmin)/2 as xCenter2, avg(x) as avg_x, count(*) as dist, n as total, avg(y) as y_share 
+                         from df, (select count(*) as n from df) a 
+                         group by xCenter, xmin, xmax order by xCenter"))
+    df2$share <- df2$dist/df2$total
+    
+    plot <- ggplot(data=df2, aes(x=xCenter2, y=share)) + #fill=y_share)) +
+      geom_bar(colour="grey", fill='lightgrey', stat="identity", width=barwidth) +
+      scale_y_continuous(
+        "mpg (US)", 
+        sec.axis = sec_axis(~ . * 1.20, name = "mpg (UK)")
+      ) +
+      geom_smooth(se=FALSE, method='loess', linetype='dotted') +
+      geom_line(aes(y=y_share), size=2, stat = "identity", position = "identity", colour="green") +
+      xlab(paste(x)) + 
+      ylab("Share [0;1]") +
+
+      ggtitle(paste("Average of '",y,"'\n - by '",x,"' \n(incl. distribution of '",x,"')",sep="")) +
+      theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"),
+            axis.text.x=element_text(size=15),
+            axis.title.x = element_text(size=14),
+            axis.title.y = element_text(size=14)
+      )
+    
+  } else {
+    warning <- "Error: x is not numeric of factor."
+  }
+  print(plot)
+  
+}
+
+
+
+binary_explore <- function(df, y, pdf=FALSE, pdfname=NULL){
+  library(reshape2)
+  library(ggplot2)
+  library(sqldf)
+  
+  options(sqldf.driver = "SQLite") # sqldf sql driver points back to SQLite for local data handling
+  
+  if(pdf==TRUE) {
+    #pdf(pdfname,width=20)
+    pdf(pdfname)
+  }
+  df0 <- df
+  
+  inputvars <- colnames(df)[c(!colnames(df) %in% y)]
+  for (x in inputvars){
+    go <- ifelse(is.numeric(df$x),TRUE,ifelse(length(unique(df[,x]))<40,TRUE,FALSE))
+    if (go==FALSE) inputvars <- inputvars[!inputvars %in% x]
+  }
+  
+  k<-0
+  for (x in inputvars){
+    k<-k+1
+    print(paste("working...",k,"/",length(inputvars),":",x))
+    df <- na.omit(df0[, c(x, y)])
+    colnames(df) <- c("x","y")
+    
+    if (is.character(df$x)) df$x <- as.factor(df$x)
+    
+    mod <- glm(y~x,data=df,family=binomial())
+    met <- gini_curve(df,mod,"y=1",plotroc=FALSE)
+    
+    ginimet <- met["gini"]
+    auc <- met["auc"]
+    #unique(df2$x)
+    
+    if (is.factor(df[,c("x")])) { # factor
+      if (length(unique(df$x))>25) {
+        
+        df2 <- sqldf(paste("select xCenter2, sum(dist) as dist, total, 1.0*sum(y_sum)/sum(dist) as y_share
+                           from (
+                           select case when count(*)< n*0.03 then 'Other' else x end as xCenter2, count(*) as dist, n as total, sum(y) as y_sum
+                           from df, (select count(*) as n from df) a 
+                           group by x) z group by xCenter2 order by 1.0*y_sum/sum(dist) "))
+        
+      } else {
+        df2 <- sqldf(paste("select x as xCenter2, count(*) as dist, n as total, avg(y) as y_share
+                           from df, (select count(*) as n from df) a 
+                           group by x order by avg(y)"))
+        
+      }
+      df2$share <- df2$dist/df2$total
+      
+      barwidth <- 9/length(unique(df$x))
+      
+      plot <- ggplot(data=df2, aes(x=xCenter2, y=share)) + #fill=y_share)) +
+        geom_bar(colour="grey", fill='lightgrey', stat="identity", width=barwidth) +
+        coord_flip() + 
+        geom_line(aes(y=y_share, x=xCenter2,group=1), size=2, stat = "identity", position = "identity", colour="green") +
+        xlab(paste(x)) + ylab("Share [0;1]") +
+        ggtitle(paste("Share of '",y,"' (gini=",format(ginimet, digits=3),"(in glm model))\n - by '",x,"' \n(incl. distribution of '",x,"')",sep="")) +
+        theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"),
+              axis.text.x=element_text(size=15),
+              axis.title.x = element_text(size=14),
+              axis.title.y = element_text(size=14)
+        )
+      print(plot)
+    } else if (is.numeric(df[,c("x")])) { # numeric
+      
+      barwidth <- (max(df[,c("x")])-min(df[,c("x")]))*0.75/14
+      df[,c("x")] <- as.numeric(df[,c("x")])
+      
+      if (length(unique(df$x))>12) {
+        df$xmin <- ave(df$x, cut(df$x,12), FUN=min)
+        df$xmax <- ave(df$x, cut(df$x,12), FUN=max)
+        df$xCenter <- ave(df$x, cut(df$x,12), FUN=median)
+        df2 <-   sqldf(paste("select xCenter, xmin+(xmax-xmin)/2 as xCenter2, avg(x) as avg_x, count(*) as dist, n as total, avg(y) as y_share 
+                             from df, (select count(*) as n from df) a 
+                             group by xCenter, xmin, xmax order by xCenter"))
+      } else {
+        df2 <- sqldf(paste("select x as xCenter2, avg(x) as avg_x, count(*) as dist, n as total, avg(y) as y_share
+                               from df, (select count(*) as n from df) a 
+                                 group by x order by x"))
+      }
+      df2$share <- df2$dist/df2$total
+      
+      plot <- ggplot(data=df2, aes(x=xCenter2, y=share)) + #fill=y_share)) +
+        geom_bar(colour="grey", fill='lightgrey', stat="identity", width=barwidth) +
+        geom_smooth(se=FALSE, method='loess', linetype='dotted') +
+        geom_line(aes(y=y_share), size=2, stat = "identity", position = "identity", colour="green") +
+        xlab(paste(x)) + ylab("Share [0;1]") +
+        ggtitle(paste("Share of '",y,"' (gini=",format(ginimet, digits=3),"(in glm model))\n - by '",x,"' \n(incl. distribution of '",x,"')",sep="")) +
+        theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"),
+              axis.text.x=element_text(size=15),
+              axis.title.x = element_text(size=14),
+              axis.title.y = element_text(size=14)
+        )
+      print(plot)
+      
+    } else {
+      warning <- "Error..."
+    }
+    }
+  
+  if(pdf==TRUE) {
+    dev.off()
+  }
+  
+}
 
