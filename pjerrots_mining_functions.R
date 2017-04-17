@@ -426,6 +426,7 @@ graph_num_grouped <- function(df, varnavn,targetvar, targetvartext="TARGET"){
     {
       grpsize <- 20
     } 
+	if (grpsize<10) grpsize <- 10
     
     d <- sqldf(paste("select ", varnavn, ",", targetvar, " as binarytarget from df order by", varnavn))
     d$RANKVAR <- ceiling(grpsize*rank(d[varnavn], ties.method= "first")/nrow(df))
