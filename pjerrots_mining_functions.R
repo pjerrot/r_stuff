@@ -171,8 +171,8 @@ samp <- function(df,samp_n=1000, method="random"){
 }
 
 # calculates r-squared on x,y value pairs
-calc.r2 <- function(y,x,df = NULL){
-  modtext <- paste("tmpmod <- glm(binarytarget ~",x,", data=df, family=gaussian)")
+calc.r2 <- function(y="binarytarget",x,df = NULL){
+  modtext <- paste("tmpmod <- glm(",y," ~",x,", data=df, family=gaussian)")
   eval(parse(text=modtext))
   result <- (1 - tmpmod$deviance/tmpmod$null.deviance)
   return(result)
