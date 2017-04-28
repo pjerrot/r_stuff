@@ -408,6 +408,7 @@ glm_to_sql <- function(glmmodel) {
   
   if (glmmodel$family$link == "logit") {
     x.sql <- paste("1/(1 + exp(-(",x.sql0,")))")  
+    x.sql <- paste("case when (",x.sql0,") between -40 and 40 then (", x.sql,") else 0 end ")
   } else if (glmmodel$family$link == "identity") {
     x.sql <- x.sql0
   }
@@ -419,6 +420,7 @@ glm_to_sql <- function(glmmodel) {
   return(outs)
   
 }
+
 
 # creates nice graph on numerical variable distribution combined with avg. target values
 graph_num_grouped <- function(df, varnavn,targetvar, targetvartext="TARGET"){
