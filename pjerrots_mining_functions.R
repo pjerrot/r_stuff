@@ -417,11 +417,10 @@ glm_to_sql <- function(glmmodel) {
   
   #outs <-c(x.sql, x.sql0)
   outs <-c(x.sql)
-  names(outs) <- c("x.sql")#, "x.sql0")
+  names(outs) <- c("x.sql") #, "x.sql0")
   return(outs)
   
 }
-
 
 # creates nice graph on numerical variable distribution combined with avg. target values
 graph_num_grouped <- function(df, varnavn,targetvar, targetvartext="TARGET"){
