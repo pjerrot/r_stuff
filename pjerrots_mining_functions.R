@@ -415,8 +415,9 @@ glm_to_sql <- function(glmmodel) {
   
   assign("modcoeffs",modcoeffs,envir = .GlobalEnv)
   
-  outs <-c(x.sql, x.sql0)
-  names(outs) <- c("x.sql", "x.sql0")
+  #outs <-c(x.sql, x.sql0)
+  outs <-c(x.sql)
+  names(outs) <- c("x.sql")#, "x.sql0")
   return(outs)
   
 }
