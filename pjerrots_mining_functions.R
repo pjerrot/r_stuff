@@ -171,8 +171,8 @@ samp <- function(df,samp_n=1000, method="random"){
 }
 
 # calculates r-squared on x,y value pairs
-calc.r2 <- function(y,x,df = NULL){
-  modtext <- paste("tmpmod <- glm(binarytarget ~",x,", data=df, family=gaussian)")
+calc.r2 <- function(y="binarytarget",x,df = NULL){
+  modtext <- paste("tmpmod <- glm(",y," ~",x,", data=df, family=gaussian)")
   eval(parse(text=modtext))
   result <- (1 - tmpmod$deviance/tmpmod$null.deviance)
   return(result)
@@ -354,6 +354,7 @@ gini_curve <- function(df,modelobj,targetdef,plotroc=FALSE){
 
 # parses glm (binary and gaussian) to sql
 glm_to_sql <- function(glmmodel) {
+  library("sqldf")
   vartypes <- data.frame(unlist(attr(glmmodel$terms,'dataClasses')))
   vartypes$varname <- rownames(vartypes)
   rownames(vartypes) <- NULL
@@ -390,7 +391,9 @@ glm_to_sql <- function(glmmodel) {
   coeffmatrix[,"xlevel"] <- gsub("[\r\n]", "", coeffmatrix[,"xlevel"])
   coeffmatrix <- sqldf("select distinct * from coeffmatrix")
   
-  for (i in 1:nrow(coeffmatrix)) {
+  j<-0
+  for (i in which(coeffmatrix$coeffvalue!=0)) {
+    j <- j + 1
     if(coeffmatrix$coeffname[i] == "(Intercept)") 
     {
       coeffmatrix$sqlstr[i] <- coeffmatrix$coeffvalue[i]
@@ -400,18 +403,23 @@ glm_to_sql <- function(glmmodel) {
       coeffmatrix$sqlstr[i] <- paste("(case when ",coeffmatrix$varname[i],"='",coeffmatrix$xlevel[i], "' THEN ",coeffmatrix$coeffvalue[i]," ELSE 0 END)",sep="")
     }
     
-    if (i==1){x.sql0 <- coeffmatrix$sqlstr[i]} else {x.sql0 <- paste(x.sql0,"+",coeffmatrix$sqlstr[i])}
+    if (j==1){x.sql0 <- coeffmatrix$sqlstr[i]} else {x.sql0 <- paste(x.sql0,"+",coeffmatrix$sqlstr[i])}
   }
   
   if (glmmodel$family$link == "logit") {
     x.sql <- paste("1/(1 + exp(-(",x.sql0,")))")  
+    x.sql <- paste("case when (",x.sql0,") between -40 and 40 then (", x.sql,") else 0 end ")
   } else if (glmmodel$family$link == "identity") {
     x.sql <- x.sql0
   }
   
   assign("modcoeffs",modcoeffs,envir = .GlobalEnv)
   
-  return(x.sql)
+  #outs <-c(x.sql, x.sql0)
+  outs <-c(x.sql)
+  names(outs) <- c("x.sql") #, "x.sql0")
+  return(outs)
+  
 }
 
 # creates nice graph on numerical variable distribution combined with avg. target values
