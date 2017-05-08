@@ -1,25 +1,3 @@
-tmp <- glm(CHURNET ~ ANCIENNITET_KAT+ARPU_EX_IC*BINDING_KATEGORI, data=df,family=binomial())
-tmp <- glm(CHURNET ~ ANCIENNITET_KAT+ARPU_EX_IC, data=df,family=binomial())
-summary(tmp)
-tmp2 <- glm_to_sql(tmp)
-tmp2
-
-tmp <- sqldf("select * from uncdata0 where reference_id = 'ford_mondeo__07'")
-tmp_mod <- glm(price ~price+engine_size+km+year+fuel+fuel*km,data=tmp,family=gaussian())
-tmp2 <- glm_to_sql(tmp_mod)
-tmp2
-
-glmmodel <- tmp
-
-glmmodel$
-
-tmp3 <- data.frame(glmmodel$xlevels)
-  
-tmp3 <- data.frame(glmmodel$xlevels[1])
-colnames(tmp3)[1]
-
-
-tmp3[1]
 
 glm_to_sql <- function(glmmodel) {
   vartypes <- data.frame(unlist(attr(glmmodel$terms,'dataClasses')))
@@ -38,9 +16,7 @@ glm_to_sql <- function(glmmodel) {
   rownames(modcoeffs) <- NULL
   colnames(modcoeffs)[1] <- "coeffvalue"
   modcoeffs[is.na(modcoeffs$coeffvalue),"coeffvalue"] <- 0
-  
-  
-  
+
   for (i in 1:nrow(modcoeffs)) {    
     v <- unlist(strsplit(modcoeffs[i,"coeffname"], ":", fixed=FALSE))
     modcoeffs[i,"splitname1"] <- v[1]
@@ -48,10 +24,6 @@ glm_to_sql <- function(glmmodel) {
     modcoeffs[i,"splitname3"] <- v[3]
     modcoeffs[i,"splitname4"] <- v[4]
   }
-  
-  v
-  modcoeffs[,"coeffname"]
-  
   
   varcats <- data.frame(varname=character(0), #name of variable
                         category=character(0), stringsAsFactors=F)
@@ -71,7 +43,8 @@ glm_to_sql <- function(glmmodel) {
   modcoeffs$varname2 <- modcoeffs$splitname2
   modcoeffs$varname3 <- modcoeffs$splitname3
   modcoeffs$varname4 <- modcoeffs$splitname4
-  
+
+if (length(glmmodel$xlevels)>0) {  
   for (i in 1:nrow(modcoeffs)) {    
     for (j in 1:nrow(varcats)) {    
       if (modcoeffs[i,"splitname1"] == paste(varcats[j,"varname"], varcats[j,"category"],sep="")) 
@@ -106,6 +79,7 @@ glm_to_sql <- function(glmmodel) {
     }
     
   }
+}
   
   modcoeffs$sql <- ""
   for (i in 1:nrow(modcoeffs)) {    

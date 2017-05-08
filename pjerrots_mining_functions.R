@@ -757,8 +757,8 @@ numtarget_graph <- function(df, x, y, barwidth=10, pdf=FALSE, pdfname=NULL) {
     plot <- ggplot(data=df2, aes(x=xCenter2, y=share)) + #fill=y_share)) +
       geom_bar(colour="grey", fill='lightgrey', stat="identity", width=barwidth) +
       scale_y_continuous(
-        "mpg (US)", 
-        sec.axis = sec_axis(~ . * 1.20, name = "mpg (UK)")
+        "distribution", 
+        sec.axis = sec_axis(~ . * 1.20, name = "..")
       ) +
       geom_smooth(se=FALSE, method='loess', linetype='dotted') +
       geom_line(aes(y=y_share), size=2, stat = "identity", position = "identity", colour="green") +
