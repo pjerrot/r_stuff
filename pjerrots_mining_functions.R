@@ -200,14 +200,14 @@ rpart_to_sql <- function(model,df) {
         name1 <- paste(" ",names(df)[k],"=",sep="")
         name2 <- paste(" ",names(df)[k],">",sep="")
         name3 <- paste(" ",names(df)[k],"<",sep="")
-        enregel <- gsub(name1,paste("ÅÆ",name1,sep=""),enregel  )
-        enregel <- gsub(name2,paste("ÅÆ",name2,sep=""),enregel  )
-        enregel <- gsub(name3,paste("ÅÆ",name3,sep=""),enregel  )
+        enregel <- gsub(name1,paste("Ã…Ã†",name1,sep=""),enregel  )
+        enregel <- gsub(name2,paste("Ã…Ã†",name2,sep=""),enregel  )
+        enregel <- gsub(name3,paste("Ã…Ã†",name3,sep=""),enregel  )
       }
-      enregel <- gsub("ÅÆÅÆ","ÅÆ",enregel)
+      enregel <- gsub("Ã…Ã†Ã…Ã†","Ã…Ã†",enregel)
       enregel <- gsub("'","",enregel)
       
-      v <- gsub("[[:space:]]*$","",c(unlist(strsplit(enregel, split="ÅÆ"))))
+      v <- gsub("[[:space:]]*$","",c(unlist(strsplit(enregel, split="Ã…Ã†"))))
       
       regel <- ""
       for (j in 2:length(v)) {
@@ -252,7 +252,7 @@ rpart_to_sql <- function(model,df) {
 gini_curve <- function(df,modelobj,targetdef,plotroc=FALSE){
   options(warn=-1)
   
-  # DENNE STUMP SIKRER AT DATASÆTTET KUN INDEHOLDER DE KATEGORIER, SOM ER ANVENDT I MODELLEN  
+  # DENNE STUMP SIKRER AT DATASÃ†TTET KUN INDEHOLDER DE KATEGORIER, SOM ER ANVENDT I MODELLEN  
   sql <- paste("select a.*,case when ",targetdef,"then 1 else 0 end as bintarget from df a where 1=1")
   for(i in names(modelobj$xlevels)) {
     sql0 <- paste("and",names(modelobj$xlevels[i]),"in (")
@@ -269,7 +269,7 @@ gini_curve <- function(df,modelobj,targetdef,plotroc=FALSE){
   }
   df <- sqldf(sql)
   
-  #FJERNER EVT. MISSING VÆRDIER  
+  #FJERNER EVT. MISSING VÃ†RDIER  
   #  df <- na.omit(df)
   gc.bintarget <- df["bintarget"]
   
@@ -279,7 +279,7 @@ gini_curve <- function(df,modelobj,targetdef,plotroc=FALSE){
   } else {
     if (modelobj$method=="class") 
     {
-      gc.prob<-predict(modelobj, newdata=df, type="class") #Træ
+      gc.prob<-predict(modelobj, newdata=df, type="class") #TrÃ¦
     } else if (modelobj$method=="anova") 
     {
       gc.prob<-predict(modelobj,type=c("class"), newdata=df)
@@ -533,7 +533,7 @@ graph_num_grouped <- function(df, varnavn,targetvar, targetvartext="TARGET"){
                             critvalue=numeric(0), #value of optimzation criteria
                             sqlstring=character(0), stringsAsFactors=F)
     
-    # ny gruppering: iterativt finde dem, der matcher bedst, grupper og fortsæt indtil 2 grupper tilbage
+    # ny gruppering: iterativt finde dem, der matcher bedst, grupper og fortsÃ¦t indtil 2 grupper tilbage
     while (nrow(gns)>1) {
       
       #laver SQL
@@ -556,7 +556,7 @@ graph_num_grouped <- function(df, varnavn,targetvar, targetvartext="TARGET"){
           gns[m,9] <- gns[m,5]*(gns[m,4]-mean_target_all)*(gns[m,4]-mean_target_all)
         } else {    
           gns[m,7] <- sqrt(((gns[m-1,5]-1)*gns[m-1,6]*gns[m-1,6] + (gns[m,5]-1)*gns[m,6]*gns[m,6])/(gns[m-1,5]+gns[m,5]-2))  
-          gns[m,8] <- ((gns[m,6]-gns[m,7])^2 + (gns[m-1,6]-gns[m,7])^2)/2 # beregner "standardafvigelse mellem de to stds og den fælles stdev
+          gns[m,8] <- ((gns[m,6]-gns[m,7])^2 + (gns[m-1,6]-gns[m,7])^2)/2 # beregner "standardafvigelse mellem de to stds og den fÃ¦lles stdev
           gns[m,9] <- gns[m,5]*(gns[m,4]-mean_target_all)*(gns[m,4]-mean_target_all)
         }
       }
@@ -575,7 +575,7 @@ graph_num_grouped <- function(df, varnavn,targetvar, targetvartext="TARGET"){
       
       cat_stats[nrow(cat_stats)+1,] <- c(varnavn,nrow(gns),sum(gns[9])/(sd_target_all*sd_target_all*count_target_all), sql)
       
-      gns <- sqldf("select * from gns where diffrank<>1") #fjerner diffrank=1 efter at denne er slået sammen med rækken ovenover.
+      gns <- sqldf("select * from gns where diffrank<>1") #fjerner diffrank=1 efter at denne er slÃ¥et sammen med rÃ¦kken ovenover.
       
     }  
     
@@ -645,7 +645,7 @@ graph_categorical_grouped <- function(varnavn,df,targetvar,targetvartext="TARGET
                             critvalue=numeric(0), #value of optimzation criteria
                             sqlstring=character(0), stringsAsFactors=F)
     
-    # ny gruppering: iterativt finde dem, der matcher bedst, grupper og fortsæt indtil 4 grupper tilbage
+    # ny gruppering: iterativt finde dem, der matcher bedst, grupper og fortsÃ¦t indtil 4 grupper tilbage
     sql <- ""
     while (nrow(gns)>1) {
       
@@ -657,7 +657,7 @@ graph_categorical_grouped <- function(varnavn,df,targetvar,targetvartext="TARGET
           gns[i,7] <- gns[i,3]*(gns[i,2]-mean_target_all)*(gns[i,2]-mean_target_all)
         } else {    
           gns[i,5] <- sqrt(((gns[i-1,3]-1)*gns[i-1,4]*gns[i-1,4] + (gns[i,3]-1)*gns[i,4]*gns[i,4])/(gns[i-1,3]+gns[i,3]-2))  
-          gns[i,6] <- ((gns[i,4]-gns[i,5])^2 + (gns[i-1,4]-gns[i,5])^2)/2 # beregner "standardafvigelse mellem de to stds og den fælles stdev
+          gns[i,6] <- ((gns[i,4]-gns[i,5])^2 + (gns[i-1,4]-gns[i,5])^2)/2 # beregner "standardafvigelse mellem de to stds og den fÃ¦lles stdev
           gns[i,7] <- gns[i,3]*(gns[i,2]-mean_target_all)*(gns[i,2]-mean_target_all)
         }
       }
@@ -676,7 +676,7 @@ graph_categorical_grouped <- function(varnavn,df,targetvar,targetvartext="TARGET
       
       cat_stats[nrow(cat_stats)+1,] <- c(varnavn,nrow(gns),sum(gns[7])/(sd_target_all*sd_target_all*count_target_all), sql)
       
-      gns <- sqldf("select * from gns where diffrank<>1") #fjerner diffrank=1 efter at denne er slået sammen med rækken ovenover.
+      gns <- sqldf("select * from gns where diffrank<>1") #fjerner diffrank=1 efter at denne er slÃ¥et sammen med rÃ¦kken ovenover.
       
       #laver SQL
       sql <- ""
@@ -726,6 +726,7 @@ str_replace <- function(streng,from,to) {
   splitvector <- c()
   n_element <- 0
   newstreng<-""
+  streng <- as.character(streng)
   
   if (!is.na(streng)) {
     for (i in 1:nchar(streng)) {
