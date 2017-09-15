@@ -197,14 +197,14 @@ rpart_to_sql <- function(model,df) {
         name1 <- paste(" ",names(df)[k],"=",sep="")
         name2 <- paste(" ",names(df)[k],">",sep="")
         name3 <- paste(" ",names(df)[k],"<",sep="")
-        enregel <- gsub(name1,paste("ÅÆ",name1,sep=""),enregel  )
-        enregel <- gsub(name2,paste("ÅÆ",name2,sep=""),enregel  )
-        enregel <- gsub(name3,paste("ÅÆ",name3,sep=""),enregel  )
+        enregel <- gsub(name1,paste("Ã…Ã†",name1,sep=""),enregel  )
+        enregel <- gsub(name2,paste("Ã…Ã†",name2,sep=""),enregel  )
+        enregel <- gsub(name3,paste("Ã…Ã†",name3,sep=""),enregel  )
       }
-      enregel <- gsub("ÅÆÅÆ","ÅÆ",enregel)
+      enregel <- gsub("Ã…Ã†Ã…Ã†","Ã…Ã†",enregel)
       enregel <- gsub("'","",enregel)
       
-      v <- gsub("[[:space:]]*$","",c(unlist(strsplit(enregel, split="ÅÆ"))))
+      v <- gsub("[[:space:]]*$","",c(unlist(strsplit(enregel, split="Ã…Ã†"))))
       
       regel <- ""
       for (j in 2:length(v)) {
@@ -249,7 +249,7 @@ rpart_to_sql <- function(model,df) {
 gini_curve <- function(df,modelobj,targetdef,plotroc=FALSE){
   options(warn=-1)
   
-  # DENNE STUMP SIKRER AT DATASÆTTET KUN INDEHOLDER DE KATEGORIER, SOM ER ANVENDT I MODELLEN  
+  # DENNE STUMP SIKRER AT DATASÃ†TTET KUN INDEHOLDER DE KATEGORIER, SOM ER ANVENDT I MODELLEN  
   sql <- paste("select a.*,case when ",targetdef,"then 1 else 0 end as bintarget from df a where 1=1")
   for(i in names(modelobj$xlevels)) {
     sql0 <- paste("and",names(modelobj$xlevels[i]),"in (")
@@ -266,7 +266,7 @@ gini_curve <- function(df,modelobj,targetdef,plotroc=FALSE){
   }
   df <- sqldf(sql)
   
-  #FJERNER EVT. MISSING VÆRDIER  
+  #FJERNER EVT. MISSING VÃ†RDIER  
   #  df <- na.omit(df)
   gc.bintarget <- df["bintarget"]
   
@@ -276,7 +276,7 @@ gini_curve <- function(df,modelobj,targetdef,plotroc=FALSE){
   } else {
     if (modelobj$method=="class") 
     {
-      gc.prob<-predict(modelobj, newdata=df, type="class") #Træ
+      gc.prob<-predict(modelobj, newdata=df, type="class") #TrÃ¦
     } else if (modelobj$method=="anova") 
     {
       gc.prob<-predict(modelobj,type=c("class"), newdata=df)
@@ -350,6 +350,7 @@ gini_curve <- function(df,modelobj,targetdef,plotroc=FALSE){
 }
 
 # parses glm (binary and gaussian) to sql
+
 glm_to_sql <- function(glmmodel) {
   library("sqldf")
   vartypes <- data.frame(unlist(attr(glmmodel$terms,'dataClasses')))
@@ -369,6 +370,14 @@ glm_to_sql <- function(glmmodel) {
   colnames(modcoeffs)[1] <- "coeffvalue"
   modcoeffs[is.na(modcoeffs$coeffvalue),"coeffvalue"] <- 0
   
+  for (i in 1:nrow(modcoeffs)) {    
+    v <- unlist(strsplit(modcoeffs[i,"coeffname"], ":", fixed=FALSE))
+    modcoeffs[i,"splitname1"] <- v[1]
+    modcoeffs[i,"splitname2"] <- v[2]
+    modcoeffs[i,"splitname3"] <- v[3]
+    modcoeffs[i,"splitname4"] <- v[4]
+  }
+  
   varcats <- data.frame(varname=character(0), #name of variable
                         category=character(0), stringsAsFactors=F)
   if (length(glmmodel$xlevels)>0) {
@@ -379,44 +388,104 @@ glm_to_sql <- function(glmmodel) {
     }
   }  
   
-  coeffmatrix <- sqldf("select coeffvalue, coeffname, NULL as xlevel, '' as xlevrowname, '' as sqlstr, varname
-                       from modcoeffs a join vartypes b on b.varname = a.coeffname where b.vartype='numeric' 
-                       UNION ALL                    
-                       select distinct coeffvalue, coeffname, trim(category) as xlevel, '' as xlevrowname, '' as sqlstr, varname
-                       from modcoeffs a join varcats b on coeffname = varname || category ")
-  coeffmatrix[nrow(coeffmatrix)+1,c("coeffvalue","coeffname")] <- subset(modcoeffs[,c("coeffvalue","coeffname")], coeffname == '(Intercept)')
-  coeffmatrix[,"xlevel"] <- gsub("[\r\n]", "", coeffmatrix[,"xlevel"])
-  coeffmatrix <- sqldf("select distinct * from coeffmatrix")
+  modcoeffs$sql1 <- modcoeffs$splitname1
+  modcoeffs$sql2 <- modcoeffs$splitname2
+  modcoeffs$sql3 <- modcoeffs$splitname3
+  modcoeffs$sql4 <- modcoeffs$splitname4
+  modcoeffs$varname1 <- modcoeffs$splitname1
+  modcoeffs$varname2 <- modcoeffs$splitname2
+  modcoeffs$varname3 <- modcoeffs$splitname3
+  modcoeffs$varname4 <- modcoeffs$splitname4
   
-  j<-0
-  for (i in which(coeffmatrix$coeffvalue!=0)) {
-    j <- j + 1
-    if(coeffmatrix$coeffname[i] == "(Intercept)") 
-    {
-      coeffmatrix$sqlstr[i] <- coeffmatrix$coeffvalue[i]
-    } else if (is.na(coeffmatrix$xlevel[i]) ) {    
-      coeffmatrix$sqlstr[i] <- paste("(",coeffmatrix$coeffvalue[i],"*",coeffmatrix$coeffname[i],")")
-    } else {
-      coeffmatrix$sqlstr[i] <- paste("(case when ",coeffmatrix$varname[i],"='",coeffmatrix$xlevel[i], "' THEN ",coeffmatrix$coeffvalue[i]," ELSE 0 END)",sep="")
+  if (length(glmmodel$xlevels)>0) {  
+    for (i in 1:nrow(modcoeffs)) {    
+      for (j in 1:nrow(varcats)) {    
+        if (modcoeffs[i,"splitname1"] == paste(varcats[j,"varname"], varcats[j,"category"],sep="")) 
+        { 
+          modcoeffs[i,"sql1"] <- paste("(",varcats[j,"varname"],"='",varcats[j,"category"],"')",sep="")
+          modcoeffs[i,"varname1"] <- varcats[j,"varname"]
+        }
+        if (is.na(modcoeffs[i,"splitname2"]) != TRUE) 
+        {
+          if (modcoeffs[i,"splitname2"] == paste(varcats[j,"varname"], varcats[j,"category"],sep="")) 
+          { 
+            modcoeffs[i,"sql2"] <- paste("(",varcats[j,"varname"],"='",varcats[j,"category"],"')",sep="")
+            modcoeffs[i,"varname2"] <- varcats[j,"varname"]
+          }  
+        }
+        if (is.na(modcoeffs[i,"splitname3"]) != TRUE) 
+        {
+          if (modcoeffs[i,"splitname3"] == paste(varcats[j,"varname"], varcats[j,"category"],sep="")) 
+          { 
+            modcoeffs[i,"sql3"] <- paste("(",varcats[j,"varname"],"='",varcats[j,"category"],"')",sep="")
+            modcoeffs[i,"varname3"] <- varcats[j,"varname"]
+          }  
+        }
+        if (is.na(modcoeffs[i,"splitname4"]) != TRUE) 
+        {
+          if (modcoeffs[i,"splitname4"] == paste(varcats[j,"varname"], varcats[j,"category"],sep="")) 
+          { 
+            modcoeffs[i,"sql4"] <- paste("(",varcats[j,"varname"],"='",varcats[j,"category"],"')",sep="")
+            modcoeffs[i,"varname4"] <- varcats[j,"varname"]
+          }  
+        }
+      }
     }
-    
-    if (j==1){x.sql0 <- coeffmatrix$sqlstr[i]} else {x.sql0 <- paste(x.sql0,"+",coeffmatrix$sqlstr[i])}
   }
   
-  if (glmmodel$family$link == "logit") {
-    x.sql <- paste("1/(1 + exp(-(",x.sql0,")))")  
-    x.sql <- paste("case when (",x.sql0,") between -40 and 40 then (", x.sql,") else 0 end ")
-  } else if (glmmodel$family$link == "identity") {
+  #coeffmatrix <- sqldf("select coeffvalue, coeffname, NULL as xlevel, '' as xlevrowname, '' as sqlstr, varname
+  #                           from modcoeffs a join vartypes b on b.varname = a.coeffname where b.vartype='numeric' 
+  #                     UNION ALL                    
+  #                     select distinct coeffvalue, coeffname, trim(category) as xlevel, '' as xlevrowname, '' as sqlstr, varname
+  #                     from modcoeffs a join varcats b on coeffname = varname || category ")
+  #coeffmatrix[nrow(coeffmatrix)+1,c("coeffvalue","coeffname")] <- subset(modcoeffs[,c("coeffvalue","coeffname")], coeffname == '(Intercept)')
+  #coeffmatrix[,"xlevel"] <- gsub("[\r\n]", "", coeffmatrix[,"xlevel"])
+  #coeffmatrix <- sqldf("select distinct * from coeffmatrix")
+  
+  #j<-0
+  #for (i in which(coeffmatrix$coeffvalue!=0)) {
+  #  j <- j + 1
+  #  if(coeffmatrix$coeffname[i] == "(Intercept)") 
+  #  {
+  #    coeffmatrix$sqlstr[i] <- coeffmatrix$coeffvalue[i]
+  #  } else if (is.na(coeffmatrix$xlevel[i]) ) {    
+  #    coeffmatrix$sqlstr[i] <- paste("(",coeffmatrix$coeffvalue[i],"*",coeffmatrix$coeffname[i],")")
+  #  } else {
+  #    coeffmatrix$sqlstr[i] <- paste("(case when ",coeffmatrix$varname[i],"='",coeffmatrix$xlevel[i], "' THEN ",coeffmatrix$coeffvalue[i]," ELSE 0 END)",sep="")
+  #  }
+  #  if (j==1){x.sql0 <- coeffmatrix$sqlstr[i]} else {x.sql0 <- paste(x.sql0,"+",coeffmatrix$sqlstr[i])}
+  #}
+  
+  
+  modcoeffs$sql <- ""
+  for (i in 1:nrow(modcoeffs)) {    
+    modcoeffs[i,"sql"] <- ifelse(is.na(modcoeffs[i,"sql4"])==FALSE, paste(modcoeffs[i,"coeffvalue"],"*",modcoeffs[i,"sql1"],"*",modcoeffs[i,"sql2"],"*",modcoeffs[i,"sql3"],"*",modcoeffs[i,"sql4"],sep=""),
+                                 ifelse(is.na(modcoeffs[i,"sql3"])==FALSE, paste(modcoeffs[i,"coeffvalue"],"*",modcoeffs[i,"sql1"],"*",modcoeffs[i,"sql2"],"*",modcoeffs[i,"sql3"],sep=""),
+                                        ifelse(is.na(modcoeffs[i,"sql2"])==FALSE, paste(modcoeffs[i,"coeffvalue"],"*",modcoeffs[i,"sql1"],"*",modcoeffs[i,"sql2"],sep=""),
+                                               ifelse(is.na(modcoeffs[i,"sql1"])==FALSE, paste(modcoeffs[i,"coeffvalue"],"*",modcoeffs[i,"sql1"],sep=""),""))))
+    modcoeffs[i,"sql"] <- ifelse(modcoeffs[i,"sql1"]=="(Intercept)",modcoeffs[i,"coeffvalue"],modcoeffs[i,"sql"] )
+  }
+  
+  x.sql0 <- ""  
+  for (i in 1:nrow(modcoeffs)) {    
+    if (i==1){x.sql0 <- modcoeffs$sql[i]} else {x.sql0 <- paste(x.sql0,"+",modcoeffs$sql[i])}
+  }
+  
+  if (is.null(glmmodel$family$link)){
     x.sql <- x.sql0
+  } else {  
+    if (glmmodel$family$link == "logit") {
+      x.sql <- paste("1/(1 + exp(-(",x.sql0,")))")  
+      x.sql <- paste("case when (",x.sql0,") between -40 and 40 then (", x.sql,") else 0 end ")
+    } else if (glmmodel$family$link == "identity") {
+      x.sql <- x.sql0
+    }
   }
   
   assign("modcoeffs",modcoeffs,envir = .GlobalEnv)
   
-  #outs <-c(x.sql, x.sql0)
-  outs <-c(x.sql)
-  names(outs) <- c("x.sql") #, "x.sql0")
-  return(outs)
-  
+  return(x.sql)
+
 }
 
 # creates nice graph on numerical variable distribution combined with avg. target values
@@ -461,7 +530,7 @@ graph_num_grouped <- function(df, varnavn,targetvar, targetvartext="TARGET"){
                             critvalue=numeric(0), #value of optimzation criteria
                             sqlstring=character(0), stringsAsFactors=F)
     
-    # ny gruppering: iterativt finde dem, der matcher bedst, grupper og fortsæt indtil 2 grupper tilbage
+    # ny gruppering: iterativt finde dem, der matcher bedst, grupper og fortsÃ¦t indtil 2 grupper tilbage
     while (nrow(gns)>1) {
       
       #laver SQL
@@ -484,7 +553,7 @@ graph_num_grouped <- function(df, varnavn,targetvar, targetvartext="TARGET"){
           gns[m,9] <- gns[m,5]*(gns[m,4]-mean_target_all)*(gns[m,4]-mean_target_all)
         } else {    
           gns[m,7] <- sqrt(((gns[m-1,5]-1)*gns[m-1,6]*gns[m-1,6] + (gns[m,5]-1)*gns[m,6]*gns[m,6])/(gns[m-1,5]+gns[m,5]-2))  
-          gns[m,8] <- ((gns[m,6]-gns[m,7])^2 + (gns[m-1,6]-gns[m,7])^2)/2 # beregner "standardafvigelse mellem de to stds og den fælles stdev
+          gns[m,8] <- ((gns[m,6]-gns[m,7])^2 + (gns[m-1,6]-gns[m,7])^2)/2 # beregner "standardafvigelse mellem de to stds og den fÃ¦lles stdev
           gns[m,9] <- gns[m,5]*(gns[m,4]-mean_target_all)*(gns[m,4]-mean_target_all)
         }
       }
@@ -503,7 +572,7 @@ graph_num_grouped <- function(df, varnavn,targetvar, targetvartext="TARGET"){
       
       cat_stats[nrow(cat_stats)+1,] <- c(varnavn,nrow(gns),sum(gns[9])/(sd_target_all*sd_target_all*count_target_all), sql)
       
-      gns <- sqldf("select * from gns where diffrank<>1") #fjerner diffrank=1 efter at denne er slået sammen med rækken ovenover.
+      gns <- sqldf("select * from gns where diffrank<>1") #fjerner diffrank=1 efter at denne er slÃ¥et sammen med rÃ¦kken ovenover.
       
     }  
     
@@ -573,7 +642,7 @@ graph_categorical_grouped <- function(varnavn,df,targetvar,targetvartext="TARGET
                             critvalue=numeric(0), #value of optimzation criteria
                             sqlstring=character(0), stringsAsFactors=F)
     
-    # ny gruppering: iterativt finde dem, der matcher bedst, grupper og fortsæt indtil 4 grupper tilbage
+    # ny gruppering: iterativt finde dem, der matcher bedst, grupper og fortsÃ¦t indtil 4 grupper tilbage
     sql <- ""
     while (nrow(gns)>1) {
       
@@ -585,7 +654,7 @@ graph_categorical_grouped <- function(varnavn,df,targetvar,targetvartext="TARGET
           gns[i,7] <- gns[i,3]*(gns[i,2]-mean_target_all)*(gns[i,2]-mean_target_all)
         } else {    
           gns[i,5] <- sqrt(((gns[i-1,3]-1)*gns[i-1,4]*gns[i-1,4] + (gns[i,3]-1)*gns[i,4]*gns[i,4])/(gns[i-1,3]+gns[i,3]-2))  
-          gns[i,6] <- ((gns[i,4]-gns[i,5])^2 + (gns[i-1,4]-gns[i,5])^2)/2 # beregner "standardafvigelse mellem de to stds og den fælles stdev
+          gns[i,6] <- ((gns[i,4]-gns[i,5])^2 + (gns[i-1,4]-gns[i,5])^2)/2 # beregner "standardafvigelse mellem de to stds og den fÃ¦lles stdev
           gns[i,7] <- gns[i,3]*(gns[i,2]-mean_target_all)*(gns[i,2]-mean_target_all)
         }
       }
@@ -604,7 +673,7 @@ graph_categorical_grouped <- function(varnavn,df,targetvar,targetvartext="TARGET
       
       cat_stats[nrow(cat_stats)+1,] <- c(varnavn,nrow(gns),sum(gns[7])/(sd_target_all*sd_target_all*count_target_all), sql)
       
-      gns <- sqldf("select * from gns where diffrank<>1") #fjerner diffrank=1 efter at denne er slået sammen med rækken ovenover.
+      gns <- sqldf("select * from gns where diffrank<>1") #fjerner diffrank=1 efter at denne er slÃ¥et sammen med rÃ¦kken ovenover.
       
       #laver SQL
       sql <- ""
@@ -654,6 +723,7 @@ str_replace <- function(streng,from,to) {
   splitvector <- c()
   n_element <- 0
   newstreng<-""
+  streng <- as.character(streng)
   
   if (!is.na(streng)) {
     for (i in 1:nchar(streng)) {
@@ -762,8 +832,8 @@ numtarget_graph <- function(df, x, y, barwidth=10, pdf=FALSE, pdfname=NULL) {
     plot <- ggplot(data=df2, aes(x=xCenter2, y=share)) + #fill=y_share)) +
       geom_bar(colour="grey", fill='lightgrey', stat="identity", width=barwidth) +
       scale_y_continuous(
-        "mpg (US)", 
-        sec.axis = sec_axis(~ . * 1.20, name = "mpg (UK)")
+        "distribution", 
+        sec.axis = sec_axis(~ . * 1.20, name = "..")
       ) +
       geom_smooth(se=FALSE, method='loess', linetype='dotted') +
       geom_line(aes(y=y_share), size=2, stat = "identity", position = "identity", colour="green") +
