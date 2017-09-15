@@ -139,9 +139,6 @@ giniauc <- function(df,x,y,plotroc=FALSE){
 
   } 
   
-    
-
-  
   #  options(warn=0)
   
   outs <-c(gc.auc, gc.gini)
@@ -896,5 +893,33 @@ binary_explore <- function(df, y, pdf=FALSE, pdfname=NULL){
     dev.off()
   }
   
+}
+
+# categorizes numeric variable by either equal n or equal width
+
+cats <- function(x,n,method="eq_n") { # method either "eq_n" (same n in each group) or "eq_w" (same width in each group). Default is eq_n.
+  library(sqldf)  
+  
+  if (method=="eq_w") {
+
+    width_all <- max(x)-min(x)
+    width_i <- width_all/n
+    tmp <- data.frame(grp = seq(n))
+    tmp$start <- min(x) + (tmp$grp-1)*width_i
+    tmp$slut <- min(x) + (tmp$grp)*width_i
+    tmp$category <- paste("(",tmp$start,"-",tmp$slut,")",sep="")
+    x2 <- data.frame(x=x)
+    out <- sqldf("select x, category from x2 a join tmp b on a.x between b.start and b.slut")
+    
+  } else {
+
+    tmp <- data.frame(x,rankx = ceiling(n*rank(x, ties.method= "first")/length(x)))
+    tmp2 <- aggregate(tmp, by=list(rankx), FUN=min, na.rm=TRUE)[,c("x","rankx")]
+    tmp3 <- data.frame(rankx = tmp2$rankx, category=paste("(",tmp2$x,"-",aggregate(tmp, by=list(rankx), FUN=max, na.rm=TRUE)[[2]],")",sep=""))
+    out <- sqldf("select category from tmp a join tmp3 b on a.rankx=b.rankx")
+    
+  }
+  
+ return(out$category)
 }
 

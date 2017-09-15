@@ -285,8 +285,7 @@ opt.x <- function(crittypen="r2",targetdef,df,db="SQLite", includetree=TRUE, inc
         
         varnavn <- i
         
-        if (varnavn=="binarytarget") {
-        } else {
+        if (!varnavn=="binarytarget") {
           grpsize <- ceiling(nrow(df)/300)
           if(grpsize>20)
           {
