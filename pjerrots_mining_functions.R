@@ -993,3 +993,22 @@ cats <- function(x,n,method="eq_n") { # method either "eq_n" (same n in each gro
  return(out$category)
 }
 
+# chi2 funktion, der returnerer tabel sorteret efter standardiseret residual
+chi2 <- function(df,factvars) {
+  
+  c2 <- chisq.test(df[[factvars[1]]], df[[factvars[2]]])
+  
+  p <- c2$p.value
+  xsquared <- c2$statistic
+  degF <- c2$parameter
+
+  #test$observed
+  #test$expected
+  tmp <- data.frame(c2$observed, std_res = data.frame(c2$stdres)[,3])
+  colnames(tmp)[1:2] <- factvars
+  tmp <- tmp[order(-1*tmp$std_res),]
+  
+  out <- list(p = p,xsquared=xsquared, degF=degF, chi2data=tmp)
+  return(out)  
+}
+
