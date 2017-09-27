@@ -1035,7 +1035,7 @@ cv.glmnet.wrap <- function(form,
   }
   
   inputmatrix <- model.matrix(xform,df)
-  targetvector <- as.matrix(df$y)
+  targetvector <- as.matrix(df[[y]])
   
   fit = cv.glmnet(x=inputmatrix, y=targetvector, type.measure=type.measure,nfolds=nfolds,alpha=alpha, family = family,standardize = standardize) 
   
