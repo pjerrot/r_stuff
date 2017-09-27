@@ -1012,3 +1012,68 @@ chi2 <- function(df,factvars) {
   return(out)  
 }
 
+
+cv.glmnet.wrap <- function(form,
+                           data,
+                           type.measure='mse',
+                           nfolds=15,
+                           alpha=.5,
+                           family = "gaussian",
+                           standardize = TRUE){
+  
+  library("glmnet")
+  
+  y <- trimws(as.character(form)[2])
+  xes <- trimws(unlist(strsplit(as.character(form)[3], split="+", fixed=TRUE)))
+  xform <- as.formula(paste("~",paste(xes,collapse="+")))
+  
+  df <- data.frame(na.omit(data[,c(y,xes)]))
+  
+  for (i in colnames(df)) {
+    if (is.character(df[[i]])) df[[i]] <- as.factor(df[[i]])
+    if (is.logical(df[[i]])) df[[i]] <- as.numeric(df[[i]])
+  }
+  
+  inputmatrix <- model.matrix(xform,df)
+  targetvector <- as.matrix(df$y)
+  
+  fit = cv.glmnet(x=inputmatrix, y=targetvector, type.measure=type.measure,nfolds=nfolds,alpha=alpha, family = family,standardize = standardize) 
+  
+  # outputting model formula
+  modform <- paste(as.character(form)[2],as.character(form)[1], as.character(form)[3],collapse=" ")
+  
+  
+  # outputting true coefficients in df
+  xes <- xes[order(nchar(xes))] # sorting to make sure correct variable is assigned to right coefficients below...
+  coeffs <- data.frame(coef.name = dimnames(coef(fit))[[1]][which(coef(fit, s = "lambda.min") != 0)], 
+                       coef.value = matrix(coef(fit, s = "lambda.min"))[which(coef(fit, s = "lambda.min") != 0)])
+  coeffs$varname <- ""
+  for (i in xes) {
+    coeffs[grep(i,coeffs$coef.name),"varname"] <- i
+  }
+  coeffs$factor <- ""
+  coeffs$sql <- ""
+  for (i in 1:nrow(coeffs)) {
+    coeffs[i,"factor"] <- gsub(coeffs[i,"varname"],"",coeffs[i,"coef.name"])
+    if (coeffs[i,"coef.name"]=="(Intercept)") {
+      coeffs[i,"sql"] <- coeffs[i,"coef.value"]
+    } else if (nchar(coeffs[i,"factor"])==0) {
+      coeffs[i,"sql"] <- paste(coeffs[i,"coef.value"],"*",coeffs[i,"coef.name"], sep="")
+    } else {
+      coeffs[i,"sql"] <- paste(coeffs[i,"coef.value"],"*(",coeffs[i,"varname"],"='", coeffs[i,"factor"],"')",sep="")
+    }
+  }
+  
+  # outputting model sql form
+  sql <- paste(paste(coeffs$sql,collapse=" + "),sep="")
+  
+  if (family == "gaussian") {
+    sql <- sql
+  } else if (family=="binomial") {
+    sql <- paste("1/(1 + exp(-(",sql,")))" ,sep="") 
+  }
+  
+  fit <- list(fit,modform,coeffs,sql)
+  names(fit) <- c("fit","modform","coeffsdf","sql")
+  out = fit
+}
