@@ -1028,7 +1028,8 @@ cv.glmnet.wrap <- function(form,
                            nfolds=15,
                            alpha=.5,
                            family = "gaussian",
-                           standardize = TRUE){
+                           standardize = TRUE,
+                           intercept=TRUE){
   
   library("glmnet")
   
@@ -1046,7 +1047,7 @@ cv.glmnet.wrap <- function(form,
   inputmatrix <- model.matrix(xform,df)
   targetvector <- as.matrix(df[[y]])
   
-  fit = cv.glmnet(x=inputmatrix, y=targetvector, type.measure=type.measure,nfolds=nfolds,alpha=alpha, family = family,standardize = standardize) 
+  fit = cv.glmnet(x=inputmatrix, y=targetvector, type.measure=type.measure,nfolds=nfolds,alpha=alpha, family = family,standardize = standardize, intercept=intercept) 
   
   # outputting model formula
   modform <- paste(as.character(form)[2],as.character(form)[1], as.character(form)[3],collapse=" ")
