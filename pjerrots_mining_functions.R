@@ -995,18 +995,27 @@ cats <- function(x,n,method="eq_n") { # method either "eq_n" (same n in each gro
 
 # chi2 funktion, der returnerer tabel sorteret efter standardiseret residual
 chi2 <- function(df,factvars) {
-  
+  library(sqldf)
   c2 <- chisq.test(df[[factvars[1]]], df[[factvars[2]]])
   
   p <- c2$p.value
   xsquared <- c2$statistic
   degF <- c2$parameter
-
+  
   #test$observed
   #test$expected
   tmp <- data.frame(c2$observed, std_res = data.frame(c2$stdres)[,3])
   colnames(tmp)[1:2] <- factvars
   tmp <- tmp[order(-1*tmp$std_res),]
+  
+  tmp <- sqldf(paste("select a.*, sum1, sum2, sumall
+               from tmp a 
+                join (select ", factvars[1],", sum(Freq) as sum1 from tmp group by ",factvars[1] ,") b on a.", factvars[1],"=b.", factvars[1]," 
+                join (select ", factvars[2],", sum(Freq) as sum2 from tmp group by ",factvars[2] ,") c on a.", factvars[2],"=c.", factvars[2],"                      
+                join (select sum(Freq) as sumall from tmp)  on 1=1"))
+  tmp$expected <- tmp$sumall*(tmp$sum1/tmp$sumall)*(tmp$sum2/tmp$sumall)
+  tmp$residual <- tmp$Freq - tmp$expected
+  tmp$std_sq_res <- tmp$residual^2/tmp$expected
   
   out <- list(p = p,xsquared=xsquared, degF=degF, chi2data=tmp)
   return(out)  
