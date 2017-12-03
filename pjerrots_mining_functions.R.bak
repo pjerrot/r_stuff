@@ -15,8 +15,7 @@
 #############################################################
 # calculates gini and auc metrics from x,y value pairs. INclude ROC curve
 
-
-giniauc <- function(df,x,y,plotroc=TRUE){
+giniauc <- function(df,x,y,plotroc=FALSE){
   library("ggplot2")
   library("sqldf")
   
@@ -25,121 +24,119 @@ giniauc <- function(df,x,y,plotroc=TRUE){
   df <- df[,c(x,y)]
   colnames(df) <- c("x","y")
   
-  if (is.factor(df$y)) df$y <- as.numeric(as.character(df$y))
-  
   if (is.character(df$x)) df$x <- as.factor(df$x)
   
   if (is.numeric(df$x)) {
-    groups <- length(unique(df$x))
-    if (groups>100) {
-      groups <- 100
-    }
-    
-    df$xrank <- ceiling(groups*rank(df$x, ties.method= "min")/nrow(df)) 
-    gc.graphdata <- sqldf(paste("select xrank, count(*) as n,
-                                avg(x) as avg_x, avg(y) as avg_target, sum(y) as sum_target, 
-                                1.0*sum(y)/target_total as captured_share,
-                                avg(y)/avg_target_total as lift
-                                from df
-                                ,(select sum(y) as target_total, avg(y) as avg_target_total from df) 
-                                group by xrank, target_total 
-                                order by xrank desc"))
-    for (i in 1:nrow(gc.graphdata)) {
-      #gc.graphdata[i,"x"] <- 1.0*i/nrow(gc.graphdata)
-      if(i==1) {
-        gc.graphdata[i,"captured_share_acc"] <- gc.graphdata[i,"captured_share"]
-        gc.graphdata[i,"n_acc"] <- gc.graphdata[i,"n"] 
-        gc.graphdata[i,"x"] <- 1.0*gc.graphdata[i,"n_acc"]/sum(gc.graphdata[,"n"])
-        gc.graphdata[i,"area"] <- 0.5*gc.graphdata[i,"captured_share_acc"]*gc.graphdata[i,"x"]
-      } else {   
-        gc.graphdata[i,"captured_share_acc"] <- gc.graphdata[i-1,"captured_share_acc"] + gc.graphdata[i,"captured_share"]
-        gc.graphdata[i,"n_acc"] <- (gc.graphdata[i-1,"n_acc"]+gc.graphdata[i,"n"])   
-        gc.graphdata[i,"x"] <- 1.0*gc.graphdata[i,"n_acc"]/sum(gc.graphdata[,"n"])
-        gc.graphdata[i,"area"] <- gc.graphdata[i-1,"captured_share_acc"]*(gc.graphdata[i,"x"]-gc.graphdata[i-1,"x"]) +  0.5*(gc.graphdata[i,"captured_share_acc"]-gc.graphdata[i-1,"captured_share_acc"])*(gc.graphdata[i,"x"]-gc.graphdata[i-1,"x"])
+      groups <- length(unique(df$x))
+      if (groups>100) {
+        groups <- 100
       }
-    }
-    gc.graphdata[,"lift_acc"] <- gc.graphdata[,"captured_share_acc"]/gc.graphdata[,"x"]
-    
-    gc.auc <- sum(gc.graphdata$area)
-    gc.gini <- gc.gini <- (gc.auc-0.5)/(0.5-mean(df$y)/2) 
-    
-    if (plotroc){
-      gc.graphdata[nrow(gc.graphdata)+1,"x"] <- 0
-      gc.graphdata[nrow(gc.graphdata),"captured_share_acc"] <- 0
       
-      gc.giniplot <- ggplot(data=gc.graphdata, aes(x=x)) +
-        geom_line(aes(y=captured_share_acc), color="red") +
-        geom_line(aes(y=x)) +
-        expand_limits(y=0) +
-        xlab("Score rank (desc)") + ylab("Captured response (accumulated)") +
-        ggtitle(paste("GINI (captured response). gini=",format(gc.gini,digits=3), "; AUC=",format(gc.auc,digits=3), sep=""))
-      print(gc.giniplot)
+      df$xrank <- ceiling(groups*rank(df$x, ties.method= "min")/nrow(df)) 
+      gc.graphdata <- sqldf(paste("select xrank, count(*) as n,
+                                  avg(x) as avg_x, avg(y) as avg_target, sum(y) as sum_target, 
+                                  1.0*sum(y)/target_total as captured_share,
+                                  avg(y)/avg_target_total as lift
+                                  from df
+                                  ,(select sum(y) as target_total, avg(y) as avg_target_total from df) 
+                                  group by xrank, target_total 
+                                  order by xrank desc"))
+      for (i in 1:nrow(gc.graphdata)) {
+        #gc.graphdata[i,"x"] <- 1.0*i/nrow(gc.graphdata)
+        if(i==1) {
+          gc.graphdata[i,"captured_share_acc"] <- gc.graphdata[i,"captured_share"]
+          gc.graphdata[i,"n_acc"] <- gc.graphdata[i,"n"] 
+          gc.graphdata[i,"x"] <- 1.0*gc.graphdata[i,"n_acc"]/sum(gc.graphdata[,"n"])
+          gc.graphdata[i,"area"] <- 0.5*gc.graphdata[i,"captured_share_acc"]*gc.graphdata[i,"x"]
+        } else {   
+          gc.graphdata[i,"captured_share_acc"] <- gc.graphdata[i-1,"captured_share_acc"] + gc.graphdata[i,"captured_share"]
+          gc.graphdata[i,"n_acc"] <- (gc.graphdata[i-1,"n_acc"]+gc.graphdata[i,"n"])   
+          gc.graphdata[i,"x"] <- 1.0*gc.graphdata[i,"n_acc"]/sum(gc.graphdata[,"n"])
+          gc.graphdata[i,"area"] <- gc.graphdata[i-1,"captured_share_acc"]*(gc.graphdata[i,"x"]-gc.graphdata[i-1,"x"]) +  0.5*(gc.graphdata[i,"captured_share_acc"]-gc.graphdata[i-1,"captured_share_acc"])*(gc.graphdata[i,"x"]-gc.graphdata[i-1,"x"])
+        }
+      }
+      gc.graphdata[,"lift_acc"] <- gc.graphdata[,"captured_share_acc"]/gc.graphdata[,"x"]
       
-      gc.liftplot <- ggplot(gc.graphdata, aes(x, y = value, color = Graphs)) + 
-        geom_line(aes(y = lift, col = "Lift")) + 
-        geom_line(aes(y = lift_acc, col = "AccLift"))  +
-        xlab("Score rank (desc)") + ylab("Lift") +
-        ggtitle(paste("Lift. gini=",format(gc.gini,digits=3), "; AUC=",format(gc.auc,digits=3), sep="")) +
-        scale_colour_manual(values=c("grey", "blue"))
-      print(gc.liftplot)
-    }
-    
+      gc.auc <- sum(gc.graphdata$area)
+      gc.gini <- (gc.auc-0.5)/(0.5-mean(df$y)/2)  
+      
+      if (plotroc){
+        gc.graphdata[nrow(gc.graphdata)+1,"x"] <- 0
+        gc.graphdata[nrow(gc.graphdata),"captured_share_acc"] <- 0
+        
+        gc.giniplot <- ggplot(data=gc.graphdata, aes(x=x)) +
+          geom_line(aes(y=captured_share_acc), color="red") +
+          geom_line(aes(y=x)) +
+          expand_limits(y=0) +
+          xlab("Score rank (desc)") + ylab("Captured response (accumulated)") +
+          ggtitle(paste("GINI (captured response). gini=",format(gc.gini,digits=3), "; AUC=",format(gc.auc,digits=3), sep=""))
+        print(gc.giniplot)
+        
+        gc.liftplot <- ggplot(gc.graphdata, aes(x, y = value, color = Graphs)) + 
+          geom_line(aes(y = lift, col = "Lift")) + 
+          geom_line(aes(y = lift_acc, col = "AccLift"))  +
+          xlab("Score rank (desc)") + ylab("Lift") +
+          ggtitle(paste("Lift. gini=",format(gc.gini,digits=3), "; AUC=",format(gc.auc,digits=3), sep="")) +
+          scale_colour_manual(values=c("grey", "blue"))
+        print(gc.liftplot)
+      }
+      
   } else if (is.factor(df$x)) {
-    gc.graphdata <- sqldf(paste("select x, count(*) as n, 1.0*count(*)/nialt as n_share,
-                                avg(y) as avg_target, sum(y) as sum_target, 
-                                1.0*sum(y)/target_total as captured_share,
-                                avg(y)/avg_target_total as lift
-                                from df
-                                ,(select sum(y) as target_total, avg(y) as avg_target_total, count(*) as nialt from df) 
-                                group by x, target_total, nialt 
-                                order by avg(y) desc"))
-    gc.graphdata <- na.omit(gc.graphdata)
-    
-    for (i in 1:nrow(gc.graphdata)) {
-      #gc.graphdata[i,"x"] <- 1.0*i/nrow(gc.graphdata)
-      if(i==1) {
-        gc.graphdata[i,"captured_share_acc"] <- gc.graphdata[i,"captured_share"]
-        gc.graphdata[i,"n_acc"] <- gc.graphdata[i,"n"] 
-        #gc.graphdata[i,"x"] <- 1.0*gc.graphdata[i,"n_acc"]/sum(gc.graphdata[,"n"])
-        gc.graphdata[i,"area"] <-gc.graphdata[i,"captured_share_acc"]*gc.graphdata[i,"n_share"]
-        gc.graphdata[i,"n_share_accu"] <- gc.graphdata[i,"n_share"]
-      } else {   
-        gc.graphdata[i,"captured_share_acc"] <- gc.graphdata[i-1,"captured_share_acc"] + gc.graphdata[i,"captured_share"]
-        gc.graphdata[i,"n_acc"] <- (gc.graphdata[i-1,"n_acc"]+gc.graphdata[i,"n"])   
-        #gc.graphdata[i,"x"] <- 1.0*gc.graphdata[i,"n_acc"]/sum(gc.graphdata[,"n"])
-        gc.graphdata[i,"area"] <-gc.graphdata[i,"captured_share_acc"]*gc.graphdata[i,"n_share"]
-        gc.graphdata[i,"n_share_accu"] <- gc.graphdata[i,"n_share"] + gc.graphdata[i-1,"n_share_accu"]
+      gc.graphdata <- sqldf(paste("select x, count(*) as n, 1.0*count(*)/nialt as n_share,
+                                  avg(y) as avg_target, sum(y) as sum_target, 
+                                  1.0*sum(y)/target_total as captured_share,
+                                  avg(y)/avg_target_total as lift
+                                  from df
+                                  ,(select sum(y) as target_total, avg(y) as avg_target_total, count(*) as nialt from df) 
+                                  group by x, target_total, nialt 
+                                  order by avg(y) desc"))
+      gc.graphdata <- na.omit(gc.graphdata)
+
+      for (i in 1:nrow(gc.graphdata)) {
+        #gc.graphdata[i,"x"] <- 1.0*i/nrow(gc.graphdata)
+        if(i==1) {
+          gc.graphdata[i,"captured_share_acc"] <- gc.graphdata[i,"captured_share"]
+          gc.graphdata[i,"n_acc"] <- gc.graphdata[i,"n"] 
+          #gc.graphdata[i,"x"] <- 1.0*gc.graphdata[i,"n_acc"]/sum(gc.graphdata[,"n"])
+          gc.graphdata[i,"area"] <-gc.graphdata[i,"captured_share_acc"]*gc.graphdata[i,"n_share"]
+          gc.graphdata[i,"n_share_accu"] <- gc.graphdata[i,"n_share"]
+        } else {   
+          gc.graphdata[i,"captured_share_acc"] <- gc.graphdata[i-1,"captured_share_acc"] + gc.graphdata[i,"captured_share"]
+          gc.graphdata[i,"n_acc"] <- (gc.graphdata[i-1,"n_acc"]+gc.graphdata[i,"n"])   
+          #gc.graphdata[i,"x"] <- 1.0*gc.graphdata[i,"n_acc"]/sum(gc.graphdata[,"n"])
+          gc.graphdata[i,"area"] <-gc.graphdata[i,"captured_share_acc"]*gc.graphdata[i,"n_share"]
+          gc.graphdata[i,"n_share_accu"] <- gc.graphdata[i,"n_share"] + gc.graphdata[i-1,"n_share_accu"]
+        }
       }
-    }
-    gc.graphdata[,"lift_acc"] <- gc.graphdata[,"captured_share_acc"]/gc.graphdata[,"n_share_accu"]
-    
-    gc.auc <- sum(gc.graphdata$area)
-    gc.gini <- (gc.auc-0.5)/(0.5-mean(df$y)/2)  
-    
-    #allarea <- (1-mean(df$y)) + 0.5*(mean(df$y))
-    #gc.gini <- (gc.auc-0.5)/(allarea-0.5)
-    
-    if (plotroc){
-      gc.graphdata[nrow(gc.graphdata)+1,"n_share_accu"] <- 0
-      gc.graphdata[nrow(gc.graphdata),"captured_share_acc"] <- 0
+      gc.graphdata[,"lift_acc"] <- gc.graphdata[,"captured_share_acc"]/gc.graphdata[,"n_share_accu"]
       
-      gc.giniplot <- ggplot(data=gc.graphdata, aes(x=n_share_accu)) +
-        geom_line(aes(y=captured_share_acc), color="red") +
-        geom_line(aes(y=n_share_accu)) +
-        expand_limits(y=0) +
-        xlab("Score rank (desc)") + ylab("Captured response (accumulated)") +
-        ggtitle(paste("GINI (captured response). gini=",format(gc.gini,digits=3), "; AUC=",format(gc.auc,digits=3), sep=""))
-      print(gc.giniplot)
+      gc.auc <- sum(gc.graphdata$area)
+      gc.gini <- (gc.auc-0.5)/(0.5-mean(df$y)/2)  
       
-      gc.liftplot <- ggplot(gc.graphdata, aes(n_share_accu, y = value, color = Graphs)) + 
-        geom_line(aes(y = lift, col = "Lift")) + 
-        geom_line(aes(y = lift_acc, col = "AccLift"))  +
-        xlab("Score rank (desc)") + ylab("Lift") +
-        ggtitle(paste("Lift. gini=",format(gc.gini,digits=3), "; AUC=",format(gc.auc,digits=3), sep="")) +
-        scale_colour_manual(values=c("grey", "blue"))
-      print(gc.liftplot)
-    }
-    
+      #allarea <- (1-mean(df$y)) + 0.5*(mean(df$y))
+      #gc.gini <- (gc.auc-0.5)/(allarea-0.5)
+      
+      if (plotroc){
+        gc.graphdata[nrow(gc.graphdata)+1,"n_share_accu"] <- 0
+        gc.graphdata[nrow(gc.graphdata),"captured_share_acc"] <- 0
+        
+        gc.giniplot <- ggplot(data=gc.graphdata, aes(x=n_share_accu)) +
+          geom_line(aes(y=captured_share_acc), color="red") +
+          geom_line(aes(y=n_share_accu)) +
+          expand_limits(y=0) +
+          xlab("Score rank (desc)") + ylab("Captured response (accumulated)") +
+          ggtitle(paste("GINI (captured response). gini=",format(gc.gini,digits=3), "; AUC=",format(gc.auc,digits=3), sep=""))
+        print(gc.giniplot)
+        
+        gc.liftplot <- ggplot(gc.graphdata, aes(n_share_accu, y = value, color = Graphs)) + 
+          geom_line(aes(y = lift, col = "Lift")) + 
+          geom_line(aes(y = lift_acc, col = "AccLift"))  +
+          xlab("Score rank (desc)") + ylab("Lift") +
+          ggtitle(paste("Lift. gini=",format(gc.gini,digits=3), "; AUC=",format(gc.auc,digits=3), sep="")) +
+          scale_colour_manual(values=c("grey", "blue"))
+        print(gc.liftplot)
+      }
+
   } 
   
   #  options(warn=0)
@@ -147,7 +144,7 @@ giniauc <- function(df,x,y,plotroc=TRUE){
   outs <-c(gc.auc, gc.gini)
   names(outs) <- c("auc", "gini")
   return(outs)
- }
+}
 
 # sample a df. By method=c("random","random_return","first","last")
 samp <- function(df,samp_n=1000, method="random"){
