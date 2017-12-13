@@ -1038,6 +1038,7 @@ cv.glmnet.wrap <- function(form,
   
   y <- trimws(as.character(form)[2])
   xes <- trimws(unlist(strsplit(as.character(form)[3], split="+", fixed=TRUE)))
+  if (xes==".") xes <- colnames(data)[!colnames(data) %in% y]
   xform <- as.formula(paste("~",paste(xes,collapse="+")))
   
   df <- data.frame(na.omit(data[,c(y,xes)]))
