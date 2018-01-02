@@ -171,11 +171,26 @@ samp <- function(df,samp_n=1000, method="random"){
 }
 
 # calculates r-squared on x,y value pairs
-calc.r2 <- function(y="binarytarget",x,df = NULL){
-  modtext <- paste("tmpmod <- glm(",y," ~",x,", data=df, family=gaussian)")
-  eval(parse(text=modtext))
-  result <- (1 - tmpmod$deviance/tmpmod$null.deviance)
-  return(result)
+# R squared
+r2 <- function(true, predicted) {
+  sse <- sum((predicted - true)^2)
+  sst <- sum(true^2)
+  rsquare <- 1 - sse / sst
+  
+  if (rsquare < 0) rsquare <- 0
+  
+  return (rsquare)
+}
+
+calc.r2 <- function(y,x,df){
+  sse <- sum((df[,x] - df[,y])^2)
+  sst <- sum(df$y^2)
+  rsq <- 1 - sse / sst
+  
+  # For this post, impose floor...
+  if (rsq < 0) rsq <- 0
+  
+  return (rsq)
 }
 
 
