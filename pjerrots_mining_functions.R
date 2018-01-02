@@ -1093,7 +1093,7 @@ cv.glmnet.wrap <- function(form,
 }
 
 
-waffle_plot <- function(df,x,y=NULL,maintitle="Title", subtitle=NULL){
+waffle_plot <- function(df,x,y=NULL,maintitle=NULL, subtitle=NULL){
   require(dplyr)
   require(ggplot2)
   
@@ -1126,6 +1126,7 @@ waffle_plot <- function(df,x,y=NULL,maintitle="Title", subtitle=NULL){
   df2 <- expand.grid(y = 1:nrows, x = 1:nrows)
   df2$category <- factor(rep(names(waffldata), waffldata))  
   
+  if (is.null(maintitle)) maintitle <- paste("Distribution of",x) 
   if (is.null(subtitle)) subtitle <- paste("Class of",x) 
   
   ## Plot
