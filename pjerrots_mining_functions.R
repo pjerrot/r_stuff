@@ -1091,3 +1091,60 @@ cv.glmnet.wrap <- function(form,
   names(fit) <- c("fit","modform","coeffsdf","sql")
   out = fit
 }
+
+
+waffle_plot <- function(df,x,y=NULL,maintitle="Title", subtitle=NULL){
+  require(dplyr)
+  require(ggplot2)
+  
+  # summarized stats
+
+  colnames(df)[colnames(df) %in% x] <- "group_"
+  if (!is.null(y)) colnames(df)[colnames(df) %in% y] <- "numy"
+  
+  # sums int 2 steps - to collapse groups with lt 1%
+  gb <- group_by(df,group_)
+  if (is.null(y)) {
+    O2 <- summarise(gb,n = n())
+  } else {
+    O2 <- summarise(gb,n = sum(numy))
+  }
+  O2 <- mutate(O2,freq=n/sum(n))
+  O2 <- O2[order(-O2$freq),]
+  O2[11:nrow(O2),"group_"] <- "_misc"
+  O2[which(O2$freq<0.01),"group_"] <- "_misc"
+  
+  gb <- group_by(O2,group_)
+  O3 <- mutate(O3,freq=freq/sum(freq))
+  O3$percent <- round(O3$freq*100)
+  
+  
+  waffldata <- c(unlist(O3$percent))
+  names(waffldata) <- O3$group_
+  waffldata <- waffldata[order(-waffldata)]
+  
+  nrows <- 10
+  df2 <- expand.grid(y = 1:nrows, x = 1:nrows)
+  df2$category <- factor(rep(names(waffldata), waffldata))  
+
+  if (is.null(subtitle)) subtitle <- paste("Class of",x) 
+  
+  ## Plot
+  waffl <- ggplot(df2, aes(x = x, y = y, fill = category)) + 
+    geom_tile(color = "white", size = 1.5) +
+    scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0), trans = 'reverse') +
+    scale_fill_brewer(palette = "Set3") +
+    labs(title=maintitle, subtitle=subtitle,
+         caption="Note: largest 11 categories are shown. Rest is collapsed to '_misc' category") + 
+    theme(
+      #  panel.border = element_rect(size = 2),
+      plot.title = element_text(size = rel(1.2)),
+      axis.text = element_blank(),
+      axis.title = element_blank(),
+      axis.ticks = element_blank(),
+      legend.title = element_blank(),
+      legend.position = "right")
+  return(waffl)
+}
+
