@@ -1108,6 +1108,7 @@ cv.glmnet.wrap <- function(form,
 }
 
 
+
 waffle_plot <- function(df,x,y=NULL,maintitle=NULL, subtitle=NULL){
   require(dplyr)
   require(ggplot2)
@@ -1131,8 +1132,10 @@ waffle_plot <- function(df,x,y=NULL,maintitle=NULL, subtitle=NULL){
   
   gb <- group_by(O2,group_)
   O3 <- summarize(gb,freq =sum(freq))
-  O3$percent <- round(O3$freq*100)
+  O3$percent <- round(O3$freq,2)*100
+  O3[O3$group_=="_misc","percent"] = 100 - sum(O3[!O3$group_=="_misc","percent"]) #adjusting to ensure percent sums to 100
 
+  
   waffldata <- c(unlist(O3$percent))
   names(waffldata) <- O3$group_
   waffldata <- waffldata[order(-waffldata)]
