@@ -1044,16 +1044,23 @@ cv.glmnet.wrap <- function(form,
                            data,
                            type.measure='mse',
                            nfolds=15,
-                           alpha=.5,
+                           alpha=.5, #default = elastic net
+                           lambda = NULL,
                            family = "gaussian",
                            standardize = TRUE,
                            intercept=TRUE){
   
   library("glmnet")
   
-  y <- trimws(as.character(form)[2])
-  xes <- trimws(unlist(strsplit(as.character(form)[3], split="+", fixed=TRUE)))
-  if (xes==".") xes <- colnames(data)[!colnames(data) %in% y]
+  if (typeof(form)=="character") {
+    warning("Formula was not parsed as formula type. Trying to correct...")
+    form <- as.formula(form)
+  }
+  
+  y <- trimws(as.character(form)[2]) 
+  xes <- trimws(unlist(strsplit(as.character(form)[3], split="+", fixed=TRUE))) 
+  
+  if (xes[1]==".") xes <- colnames(data)[!colnames(data) %in% y]
   xform <- as.formula(paste("~",paste(xes,collapse="+")))
   
   df <- data.frame(na.omit(data[,c(y,xes)]))
@@ -1062,11 +1069,15 @@ cv.glmnet.wrap <- function(form,
     if (is.character(df[[i]])) df[[i]] <- as.factor(df[[i]])
     if (is.logical(df[[i]])) df[[i]] <- as.numeric(df[[i]])
   }
-  
-  inputmatrix <- model.matrix(xform,df)
+
+  inputmatrix <- model.matrix(xform,  df[,!colnames(df) %in% y])
   targetvector <- as.matrix(df[[y]])
   
-  fit = cv.glmnet(x=inputmatrix, y=targetvector, type.measure=type.measure,nfolds=nfolds,alpha=alpha, family = family,standardize = standardize, intercept=intercept) 
+  lambdas <- lambda
+  if (is.null(lambdas)) lambdas <-  10^seq(3, -2, by = -.1) 
+  
+  fit = cv.glmnet(x=inputmatrix, y=targetvector, type.measure=type.measure,lambda=lambdas,
+                  nfolds=nfolds,alpha=alpha, family = family,standardize = standardize, intercept=intercept) 
   
   # outputting model formula
   modform <- paste(as.character(form)[2],as.character(form)[1], as.character(form)[3],collapse=" ")
