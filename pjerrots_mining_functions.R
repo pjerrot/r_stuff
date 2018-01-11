@@ -10,11 +10,20 @@
 #graph_categorical_grouped : graphs var against target
 #str_replace : replaces str pattern in string
 #starsplit : splits str into vector. Works with *
-
+#waffle_plot: created waffle plot (like pie chart - just better)
+#inf.omit: omits inf værdier (til modellering), så den kan bruges på samme måde som na.omit
 
 #############################################################
 # calculates gini and auc metrics from x,y value pairs. INclude ROC curve
 
+inf.omit <- function(df) {
+  for (i in colnames(df)) {
+    if (is.numeric(df[,i])) {
+      df <- df[is.finite(df[,i]),]
+    }
+  }
+  return(df)
+}
 
 giniauc <- function(df,x,y,plotroc=TRUE){
   library("ggplot2")
