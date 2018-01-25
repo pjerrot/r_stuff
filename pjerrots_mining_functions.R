@@ -1148,6 +1148,7 @@ waffle_plot <- function(df,x,y=NULL,maintitle=NULL, subtitle=NULL){
   O2 <- mutate(O2,freq=n/sum(n))
   O2 <- O2[order(-O2$freq),]
   if (nrow(O2)>11) O2[11:nrow(O2),"group_"] <- "_misc"
+  O2$group_ <- as.character(O2$group_)
   O2[which(O2$freq<0.01),"group_"] <- "_misc"
   
   gb <- group_by(O2,group_)
