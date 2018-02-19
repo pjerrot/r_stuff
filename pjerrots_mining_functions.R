@@ -153,7 +153,7 @@ giniauc <- function(df,x,y,plotroc=TRUE){
   
   #  options(warn=0)
   
-  outs <-c(gc.auc, gc.gini)
+  outs <-list(gc.auc, gc.gini)
   names(outs) <- c("auc", "gini")
   return(outs)
  }
