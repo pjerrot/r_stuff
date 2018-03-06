@@ -17,7 +17,7 @@
 #############################################################
 # calculates gini and auc metrics from x,y value pairs. INclude ROC curve
 
-vifanalysis <- function(df,vars,vif_criteria=10) {
+vifanalysis <- function(df,vars,vif_criteria=10, showprogess=FALSE) {
 
   for (i in vars) {
     if (is.character(df[,i])) df[,i] <- as.factor(df[,i]) 
@@ -41,12 +41,13 @@ vifanalysis <- function(df,vars,vif_criteria=10) {
   while (max_vif>vif_criteria) {
     vif_stats <- vif_stats[0,]
     for (l in vars[!vars %in% exclude]) {
+	  if (showprogess==TRUE) print(paste("Testing: ", l))
       newvars <- vars[!vars %in% exclude]
       tekst <- paste("mulcolmod <- lm(",l,"~.,data=df[,newvars])")
       eval(parse(text=tekst))
       r_square  <- summary(mulcolmod)$r.squared
       vif <- ifelse(is.na(r_square),1000000000,ifelse(r_square==1,1000000000,1/(1-r_square)))
-      #print(paste(l,":",vif))
+      if (showprogess==TRUE) print(paste(l,":",vif))
       vif_stats[nrow(vif_stats)+1,c("var","vifvalue")] <- list(l,vif)
     }
     
@@ -54,6 +55,7 @@ vifanalysis <- function(df,vars,vif_criteria=10) {
     
     if (vif_stats[1,"vifvalue"]>vif_criteria) {
       exclude <- c(exclude,vif_stats[1,"var"])
+	  if (showprogess==TRUE) print(paste("Excluding: ",vif_stats[1,"var"], " - VIF value=", vif_stats[1,"vifvalue"]))
       vif_hist[nrow(vif_hist)+1,c("var","vifvalue")] <- vif_stats[1,c("var","vifvalue")]
     }
     max_vif <- vif_stats[1,"vifvalue"]
