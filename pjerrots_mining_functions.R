@@ -182,12 +182,8 @@ samp <- function(df,samp_n=1000, method="random"){
 # calculates r-squared on x,y value pairs
 # R squared
 r2 <- function(true, predicted) {
-  sse <- sum((predicted - true)^2)
-  sst <- sum(true^2)
-  rsquare <- 1 - sse / sst
-  
+  rsquare <- 1 - (sum((true-predicted )^2)/sum((true-mean(true))^2))
   if (rsquare < 0) rsquare <- 0
-  
   return (rsquare)
 }
 
