@@ -1054,7 +1054,7 @@ cats <- function(x,n,method="eq_n") { # method either "eq_n" (same n in each gro
     tmp <- data.frame(grp = seq(n))
     tmp$start <- min(x) + (tmp$grp-1)*width_i
     tmp$slut <- min(x) + (tmp$grp)*width_i
-    tmp$category <- paste("(",tmp$start,"-",tmp$slut,")",sep="")
+    tmp$category <- paste("(",format(tmp$start,digits=3),"-",format(tmp$slut,digits=3),")",sep="")
     x2 <- data.frame(x=x)
     out <- sqldf("select x, category from x2 a join tmp b on a.x between b.start and b.slut")
     
