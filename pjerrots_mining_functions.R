@@ -1045,6 +1045,7 @@ binary_explore <- function(df, y, pdf=FALSE, pdfname=NULL){
 
 cats <- function(x,n,method="eq_n") { # method either "eq_n" (same n in each group) or "eq_w" (same width in each group). Default is eq_n.
   library(sqldf)  
+  x <- na.omit(x)
   
   if (method=="eq_w") {
 
