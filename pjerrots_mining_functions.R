@@ -1236,3 +1236,9 @@ waffle_plot <- function(df,x,y=NULL,maintitle=NULL, subtitle=NULL){
       legend.position = "right")
   return(waffl)
 }
+
+gemtekst <- function(text,file) {
+  write.table(text,file,row.names=FALSE,col.names=FALSE,quote=FALSE)   
+}
+
+
