@@ -1241,4 +1241,7 @@ gemtekst <- function(text,file) {
   write.table(text,file,row.names=FALSE,col.names=FALSE,quote=FALSE)   
 }
 
+checknum <- function(var) {
+  any(is.na(as.numeric(as.character(var))))==FALSE
+}
 
