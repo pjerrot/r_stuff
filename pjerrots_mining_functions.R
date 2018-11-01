@@ -1218,3 +1218,31 @@ checknum <- function(var) {
   any(is.na(as.numeric(as.character(var))))==FALSE
 }
 
+# categorizes numeric variable by either equal n or equal width
+
+cats <- function(x,n,method="eq_n") { # method either "eq_n" (same n in each group) or "eq_w" (same width in each group). Default is eq_n.
+  library(sqldf)  
+  x <- na.omit(x)
+  
+  if (method=="eq_w") {
+
+    width_all <- max(x)-min(x)
+    width_i <- width_all/n
+    tmp <- data.frame(grp = seq(n))
+    tmp$start <- min(x) + (tmp$grp-1)*width_i
+    tmp$slut <- min(x) + (tmp$grp)*width_i
+    tmp$category <- paste("(",format(tmp$start,digits=3),"-",format(tmp$slut,digits=3),")",sep="")
+    x2 <- data.frame(x=x)
+    out <- sqldf("select x, category from tmp b left join x2 a on a.x between b.start and b.slut")
+    
+  } else {
+
+    tmp <- data.frame(x,rankx = ceiling(n*rank(x, ties.method= "first")/length(x)))
+    tmp2 <- aggregate(tmp, by=list(tmp$rankx), FUN=min, na.rm=TRUE)[,c("x","rankx")]
+    tmp3 <- data.frame(rankx = tmp2$rankx, category=paste("(",tmp2$x,"-",aggregate(tmp, by=list(tmp$rankx), FUN=max, na.rm=TRUE)[[2]],")",sep=""))
+    out <- sqldf("select category from tmp a join tmp3 b on a.rankx=b.rankx")
+    
+  }
+  
+ return(out$category)
+}
