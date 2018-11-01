@@ -947,18 +947,19 @@ binary_explore <- function(df, y, pdf=FALSE, pdfname=NULL){
   
   inputvars <- colnames(df)[c(!colnames(df) %in% y)]
   for (x in inputvars){
-    go <- ifelse(is.numeric(df$x),TRUE,ifelse(length(unique(df[,x]))<40,TRUE,FALSE))
+    go <- ifelse(is.numeric(df[,x]),TRUE,ifelse(length(unique(df[,x]))<40,TRUE,FALSE))
     if (go==FALSE) inputvars <- inputvars[!inputvars %in% x]
   }
   
   k<-0
   for (x in inputvars){
+    #x <- "REV_TOTAL_REV_AMT"
     k<-k+1
     print(paste("working...",k,"/",length(inputvars),":",x))
     df <- na.omit(df0[, c(x, y)])
     colnames(df) <- c("x","y")
     
-    if (is.character(df$x)) df$x <- as.factor(df$x)
+    if ((is.character(df[,"x"])) | (length(unique(df[,"x"]))<15)) df[,"x"] <- as.factor(df[,"x"])
     
     mod <- glm(y~x,data=df,family=binomial())
     met <- gini_curve(df,mod,"y=1",plotroc=FALSE)
@@ -984,12 +985,11 @@ binary_explore <- function(df, y, pdf=FALSE, pdfname=NULL){
       }
       df2$share <- df2$dist/df2$total
       
-      barwidth <- 9/length(unique(df$x))
+      barwidth <- 0.7
       
       plot <- ggplot(data=df2, aes(x=xCenter2, y=share)) + #fill=y_share)) +
         geom_bar(colour="grey", fill='lightgrey', stat="identity", width=barwidth) +
-        coord_flip() + 
-        geom_line(aes(y=y_share, x=xCenter2,group=1), size=2, stat = "identity", position = "identity", colour="green") +
+        geom_line(aes(y=y_share, x=xCenter2,group=1), size=2, stat = "identity", position = "identity", colour="blue") +
         xlab(paste(x)) + ylab("Share [0;1]") +
         ggtitle(paste("Share of '",y,"' (gini=",format(ginimet, digits=3),"(in glm model))\n - by '",x,"' \n(incl. distribution of '",x,"')",sep="")) +
         theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"),
@@ -997,12 +997,20 @@ binary_explore <- function(df, y, pdf=FALSE, pdfname=NULL){
               axis.title.x = element_text(size=14),
               axis.title.y = element_text(size=14)
         )
+      
+      if (nrow(df2)>3) plot <- plot + coord_flip()
+      
       print(plot)
     } else if (is.numeric(df[,c("x")])) { # numeric
       
-      barwidth <- (max(df[,c("x")])-min(df[,c("x")]))*0.75/14
-      df[,c("x")] <- as.numeric(df[,c("x")])
+      df[,"xcat"] <- cats(df[,"x"],n=40,method="eq_w")
+      test <- data.frame(table(df[,"xcat"]))
+      maks <- max(df[df$xcat==test[test$Freq>30,"Var1"],"x"])
+      mini <- min(df[df$xcat==test[test$Freq>30,"Var1"],"x"])
+      df[,"x"] <- ifelse( df[,"x"]>maks,maks,ifelse(df[,"x"]<mini,mini,df[,"x"]))
       
+      barwidth <- (max(df[,"x"])-min(df[,c("x")]))*0.75/14
+
       if (length(unique(df$x))>12) {
         df$xmin <- ave(df$x, cut(df$x,12), FUN=min)
         df$xmax <- ave(df$x, cut(df$x,12), FUN=max)
@@ -1012,15 +1020,15 @@ binary_explore <- function(df, y, pdf=FALSE, pdfname=NULL){
                              group by xCenter, xmin, xmax order by xCenter"))
       } else {
         df2 <- sqldf(paste("select x as xCenter2, avg(x) as avg_x, count(*) as dist, n as total, avg(y) as y_share
-                               from df, (select count(*) as n from df) a 
-                                 group by x order by x"))
+                           from df, (select count(*) as n from df) a 
+                           group by x order by x"))
       }
       df2$share <- df2$dist/df2$total
       
       plot <- ggplot(data=df2, aes(x=xCenter2, y=share)) + #fill=y_share)) +
         geom_bar(colour="grey", fill='lightgrey', stat="identity", width=barwidth) +
         geom_smooth(se=FALSE, method='loess', linetype='dotted') +
-        geom_line(aes(y=y_share), size=2, stat = "identity", position = "identity", colour="green") +
+        geom_line(aes(y=y_share), size=2, stat = "identity", position = "identity", colour="blue") +
         xlab(paste(x)) + ylab("Share [0;1]") +
         ggtitle(paste("Share of '",y,"' (gini=",format(ginimet, digits=3),"(in glm model))\n - by '",x,"' \n(incl. distribution of '",x,"')",sep="")) +
         theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"),
@@ -1030,9 +1038,9 @@ binary_explore <- function(df, y, pdf=FALSE, pdfname=NULL){
         )
       print(plot)
       
-    } else {
-      warning <- "Error..."
-    }
+      } else {
+        warning <- "Error..."
+      }
     }
   
   if(pdf==TRUE) {
