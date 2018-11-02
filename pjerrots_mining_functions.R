@@ -930,8 +930,6 @@ numtarget_graph <- function(df, x, y, barwidth=10, pdf=FALSE, pdfname=NULL) {
   
 }
 
-
-
 binary_explore <- function(df, y, pdf=FALSE, pdfname=NULL){
   library(reshape2)
   library(ggplot2)
@@ -1046,7 +1044,6 @@ binary_explore <- function(df, y, pdf=FALSE, pdfname=NULL){
   if(pdf==TRUE) {
     dev.off()
   }
-  
 }
 
 # categorizes numeric variable by either equal n or equal width
