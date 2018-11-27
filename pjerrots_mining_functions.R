@@ -1253,3 +1253,9 @@ cats <- function(x,n,method="eq_n") { # method either "eq_n" (same n in each gro
   
   return(out$category)
 }
+
+rank10 <- function(x,dir) {
+  rank10 <- floor(10*rank(x)/length(x))+1
+  rank10 <- ifelse(rank10==11,10,rank10)
+  return(rank10)
+}
