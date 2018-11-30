@@ -240,16 +240,26 @@ r2 <- function(true, predicted) {
   return (rsquare)
 }
 
-calc.r2 <- function(y,x,df){
-  sse <- sum((df[,x] - df[,y])^2)
-  sst <- sum(df$y^2)
-  rsq <- 1 - sse / sst
+modmetrics <- function(true, predicted) {
+  require(Metrics)
+  rsquare <- 1 - (sum((true-predicted )^2)/sum((true-mean(true))^2))
+  if (rsquare < 0) rsquare <- 0
   
-  # For this post, impose floor...
-  if (rsq < 0) rsq <- 0
+  rmse <- rmse(true,predicted)
   
-  return (rsq)
+  nrmse <- rmse/mean(true)
+  
+  bias_prct <- percent_bias(true,predicted)
+  bias <- bias(true, predicted)
+  
+  auc <- auc(true,predicted)
+  
+  outs <- list(rsquare, rmse, nrmse, bias_prct, auc, bias)
+  names(outs) <- c("r2", "rmse", "nrmse", "bias_prct", "auc", "bias")
+
+  return (outs)
 }
+
 
 
 # parses rpart tree to sql
