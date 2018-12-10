@@ -1271,3 +1271,35 @@ rank10 <- function(x,dir) {
   rank10 <- ifelse(rank10==11,10,rank10)
   return(rank10)
 }
+
+runscript <- function(script,con, split=";") {
+  sqlsvector <- starsplit(script,split)
+  errors <- c()
+  for (sql in sqlsvector) {
+    #ERROR HANDLING
+    possibleError <- tryCatch(
+      {
+        print(paste("Executing:", substr(sql,1,100)))
+        dbSendUpdate(con, sql)
+      }
+      ,
+      error=function(e) {
+        e
+        print(paste("Oops! --> failed in ",substr(sql,1,100),"....",sep = ""))
+        errors <- c(errors,sql)
+      }
+    )
+    
+    if(inherits(possibleError, "error")) next
+  }
+  
+  if (length(errors)>0) {
+    result <- "Done with errors"
+  } else {
+    result <- "Done with NO errors"
+  }
+  out <- list(result,errors)
+  names(out) <- c("result","errors")
+  
+  return(out)
+}
