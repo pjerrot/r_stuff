@@ -254,7 +254,7 @@ modmetrics <- function(true, predicted) {
   
   auc <- auc(true,predicted)
   
-  gini <- (auc-0.5)/(0.5-mean(true)/2)
+  gini <- (auc-0.5)/((1-mean(true))/2)
   
   outs <- list(rsquare, rmse, nrmse, bias_prct, auc, gini, bias)
   names(outs) <- c("r2", "rmse", "nrmse", "bias_prct", "auc", "gini", "bias")
