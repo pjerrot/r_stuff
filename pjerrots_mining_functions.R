@@ -1303,3 +1303,8 @@ runscript <- function(script,con, split=";") {
   
   return(out)
 }
+
+numextract <- function(string){ 
+  library(stringr)
+  str_extract(string, "\\-*\\d+\\.*\\d*")
+} 
