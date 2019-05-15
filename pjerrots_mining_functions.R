@@ -1262,8 +1262,8 @@ cats <- function(x,n,method="eq_n") { # method either "eq_n" (same n in each gro
     
     tmp <- data.frame(x,rankx = ceiling(n*rank(x, ties.method= "first")/length(x)))
     tmp2 <- aggregate(tmp, by=list(tmp$rankx), FUN=min, na.rm=FALSE)[,c("x","rankx")]
-    tmp3 <- data.frame(rankx = tmp2$rankx, category=paste("(",tmp2$x,"-",aggregate(tmp, by=list(tmp$rankx), 
-
+	tmp3 <- data.frame(rankx = tmp2$rankx, category=paste("(",tmp2$x,"-",aggregate(tmp, by=list(tmp$rankx), FUN=max, na.rm=FALSE)[[2]],")",sep=""))
+	
     out <- sqldf("select category from tmp a join tmp3 b on a.rankx=b.rankx")
     
   }
