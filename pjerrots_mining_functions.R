@@ -1097,7 +1097,7 @@ cv.glmnet.wrap <- function(form,
                            data,
                            type.measure='mse',
                            nfolds=15,
-                           alpha=.5, #default = elastic net
+                           alpha=.5, #default = elastic net  (0=Ridge; 1=Lasso)
                            lambda = NULL,
                            family = "gaussian",
                            standardize = TRUE,
@@ -1261,8 +1261,9 @@ cats <- function(x,n,method="eq_n") { # method either "eq_n" (same n in each gro
   } else {
     
     tmp <- data.frame(x,rankx = ceiling(n*rank(x, ties.method= "first")/length(x)))
-    tmp2 <- aggregate(tmp, by=list(tmp$rankx), FUN=min, na.rm=TRUE)[,c("x","rankx")]
-    tmp3 <- data.frame(rankx = tmp2$rankx, category=paste("(",tmp2$x,"-",aggregate(tmp, by=list(tmp$rankx), FUN=max, na.rm=TRUE)[[2]],")",sep=""))
+    tmp2 <- aggregate(tmp, by=list(tmp$rankx), FUN=min, na.rm=FALSE)[,c("x","rankx")]
+    tmp3 <- data.frame(rankx = tmp2$rankx, category=paste("(",tmp2$x,"-",aggregate(tmp, by=list(tmp$rankx), 
+
     out <- sqldf("select category from tmp a join tmp3 b on a.rankx=b.rankx")
     
   }
