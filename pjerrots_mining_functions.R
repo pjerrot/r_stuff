@@ -242,10 +242,14 @@ r2 <- function(true, predicted) {
 
 modmetrics <- function(true, predicted) {
   require(Metrics)
+  
+  if (is.factor(true)) true <- as.numeric(as.character(true))
+  if (is.factor(predicted)) predicted <- as.numeric(as.character(predicted))
+  
   rsquare <- 1 - (sum((true-predicted )^2)/sum((true-mean(true))^2))
   if (rsquare < 0) rsquare <- 0
   
-  rmse <- rmse(true,predicted)
+  rmse <- Metrics::rmse(true,predicted)
   
   nrmse <- rmse/mean(true)
   
@@ -258,7 +262,7 @@ modmetrics <- function(true, predicted) {
   
   outs <- list(rsquare, rmse, nrmse, bias_prct, auc, gini, bias)
   names(outs) <- c("r2", "rmse", "nrmse", "bias_prct", "auc", "gini", "bias")
-
+  
   return (outs)
 }
 
