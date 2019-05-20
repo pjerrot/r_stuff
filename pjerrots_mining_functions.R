@@ -1362,6 +1362,10 @@ cats <- function(x,n=7,method="eq_n", target=NULL) { # method either "eq_n" (sam
     gns[nrow(gns),"maxvar"] <- Inf
     gns$category <- paste("(",format(gns$minvar,digits=3),"-",format(gns$maxvar,digits=3),")",sep="")
     
+	for (i in 2:nrow(gns)) {
+      gns[i,"minvar"] <- gns[i-1,"maxvar"]
+    }
+	
     out <- sqldf("select case when x is not null then category else '(NA-NA)' end as category 
                  from tmpdf a left join gns b on x> b.minvar and x<=b.maxvar")     
 
