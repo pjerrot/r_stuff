@@ -1241,9 +1241,19 @@ checknum <- function(var) {
 
 # categorizes numeric variable by either equal n or equal width
 
-cats <- function(x,n,method="eq_n") { # method either "eq_n" (same n in each group) or "eq_w" (same width in each group). Default is eq_n.
-  library(sqldf)  
+
+cats <- function(x,n=7,method="eq_n", target=NULL) { # method either "eq_n" (same n in each group, "eq_w" ), "eq_w" (same width in each group) 
+                              # ... or "opt" (based on own algorithm shooting for target var). Default is eq_n.
+  library(sqldf)
+  library(rpart)
+  
+  x0 <- x
   x <- na.omit(x)
+  
+  if (is.null(target) & method=="opt") {
+    print("Missing target variable with 'opt' method")
+    break
+  }
   
   if (method=="eq_w") {
     
@@ -1253,23 +1263,114 @@ cats <- function(x,n,method="eq_n") { # method either "eq_n" (same n in each gro
     tmp$start <- min(x) + (tmp$grp-1)*width_i
     tmp$slut <- min(x) + (tmp$grp)*width_i
     tmp[n,"slut"] <- tmp[n,"slut"] + 1
-    tmp$category <- paste("(",format(tmp$start,digits=3),"-",format(tmp$slut,digits=3),")",sep="")
-    x2 <- data.frame(x=x)
-    out <- sqldf("select x, category from x2 a left join tmp b on 
+    tmp$category <- paste("(",format(tmp$start,digits=3)," - ",format(tmp$slut,digits=3),")",sep="")
+    tmp[1,"start"] <- -Inf
+    tmp[nrow(tmp),"slut"] <- Inf
+    x2 <- data.frame(x=x0)
+    out <- sqldf("select x, case when x is not null then category else '(NA-NA)' end as category 
+                 from x2 a 
+                 left join tmp b on 
                  a.x >= b.start 
                  and a.x < b.slut")
-  } else {
+  } else if (method=="eq_n"){
     
     tmp <- data.frame(x,rankx = ceiling(n*rank(x, ties.method= "first")/length(x)))
     tmp2 <- aggregate(tmp, by=list(tmp$rankx), FUN=min, na.rm=FALSE)[,c("x","rankx")]
-	tmp3 <- data.frame(rankx = tmp2$rankx, category=paste("(",tmp2$x,"-",aggregate(tmp, by=list(tmp$rankx), FUN=max, na.rm=FALSE)[[2]],")",sep=""))
-	
+    tmp3 <- data.frame(rankx = tmp2$rankx, category=paste("(",tmp2$x,"-",aggregate(tmp, by=list(tmp$rankx), FUN=max, na.rm=FALSE)[[2]],")",sep=""))
+    
     out <- sqldf("select category from tmp a join tmp3 b on a.rankx=b.rankx")
     
+  } else { #('opt')
+    tmpdf <- data.frame(x=x0,target)
+    grpsize <- ceiling(nrow(tmpdf)/300)
+    if(grpsize>40)
+    {
+      grpsize <- 40
+    } 
+    
+    d <- tmpdf[,c("x","target")][order(tmpdf$x),]
+    #d <- sqldf(paste("select x, target from tmpdf order by x"))
+
+    d$RANKVAR <- ceiling(grpsize*rank(d["x"], ties.method= "min")/nrow(tmpdf))
+    
+    gns <- sqldf(paste("select RANKVAR, min(x) as minvar, max(x) as maxvar,  
+                       avg(target) as target_avg, count(*) as count, stdev(target) as sd_target 
+                       from d 
+                       where x is not null
+                       group by RANKVAR 
+                       order by RANKVAR"))
+    
+    gns[,7] <- 0
+    colnames(gns)[7] <- "sd_common"
+    
+    gns[,8] <- 0
+    colnames(gns)[8] <- "sd_sd_common"
+    
+    #gns[,9] <- 0
+    #colnames(gns)[9] <- "SAKyhi"
+    
+    sd_target_all <- sd(unlist(tmpdf["target"]))
+    mean_target_all <- mean(unlist(tmpdf["target"]))
+    count_target_all <- nrow(tmpdf)
+    
+    cat_stats <- data.frame(varname=character(0), #name of variable
+                            n_groups=numeric(0),
+                            critvalue=numeric(0), #value of optimzation criteria
+                            sqlstring=character(0), stringsAsFactors=F)
+    
+    # ny gruppering: iterativt finde dem, der matcher bedst, grupper og forts�t indtil 2 grupper tilbage
+    while (nrow(gns)>n) {
+      
+      #laver SQL
+      sql <- ""
+      for (m in 1:nrow(gns)) {
+        sql <- paste(sql," when x <= ", gns[m,"maxvar"]," then ",gns[m,"target_avg"],"",sep="")
+      }
+      sql <- paste("case ",sql," else ",mean(tmpdf[,"target"])," end ",sep="")
+      
+      for (m in 1:nrow(gns)) {
+        if(m==1)
+        {
+          gns[m,7] <- NA
+          gns[m,8] <- NA
+          gns[m,9] <- gns[m,5]*(gns[m,4]-mean_target_all)*(gns[m,4]-mean_target_all)
+        } else {    
+          gns[m,7] <- sqrt(((gns[m-1,5]-1)*gns[m-1,6]*gns[m-1,6] + (gns[m,5]-1)*gns[m,6]*gns[m,6])/(gns[m-1,5]+gns[m,5]-2))  
+          gns[m,8] <- ((gns[m,6]-gns[m,7])^2 + (gns[m-1,6]-gns[m,7])^2)/2 # beregner "standardafvigelse mellem de to stds og den fælles stdev
+          gns[m,9] <- gns[m,5]*(gns[m,4]-mean_target_all)*(gns[m,4]-mean_target_all)
+        }
+      }
+      
+      gns <- mutate(gns, diffrank = rank(sd_sd_common, ties.method = "first"))
+      
+      for (m in 1:nrow(gns)) {
+        if(gns[m,"diffrank"]==1)
+        {
+          gns[m-1,"maxvar"] <- gns[m,"maxvar"]  
+          gns[m-1,"target_avg"] <- (gns[m,"target_avg"]*gns[m,"count"] + gns[m-1,"target_avg"]*gns[m-1,"count"])/(gns[m,"count"]+gns[m-1,"count"]) 
+          gns[m-1,"count"] <- gns[m,"count"]+gns[m-1,"count"]
+          gns[m-1,"sd_target"] <- gns[m,"sd_common"]
+        }
+      }
+      
+      cat_stats[nrow(cat_stats)+1,] <- list("x",nrow(gns),sum(gns[9])/(sd_target_all*sd_target_all*count_target_all), sql)
+      
+      gns <- sqldf("select * from gns where diffrank<>1") #fjerner diffrank=1 efter at denne er slået sammen med rækken ovenover.
+      for (k in 2:nrow(gns)) gns[k,"minvar"] <- gns[k-1,"maxvar"]
+    }  
+    gns[1,"minvar"] <- -Inf
+    gns[nrow(gns),"maxvar"] <- Inf
+    gns$category <- paste("(",format(gns$minvar,digits=3),"-",format(gns$maxvar,digits=3),")",sep="")
+    
+    out <- sqldf("select case when x is not null then category else '(NA-NA)' end as category 
+                 from tmpdf a left join gns b on x> b.minvar and x<=b.maxvar")     
+
   }
   
   return(out$category)
 }
+
+
 
 rank10 <- function(x,dir) {
   rank10 <- floor(10*rank(x)/length(x))+1
