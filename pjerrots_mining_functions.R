@@ -1356,8 +1356,9 @@ cats <- function(x,n=7,method="eq_n", target=NULL) { # method either "eq_n" (sam
       cat_stats[nrow(cat_stats)+1,] <- list("x",nrow(gns),sum(gns[9])/(sd_target_all*sd_target_all*count_target_all), sql)
       
       gns <- sqldf("select * from gns where diffrank<>1") #fjerner diffrank=1 efter at denne er slået sammen med rækken ovenover.
-      for (k in 2:nrow(gns)) gns[k,"minvar"] <- gns[k-1,"maxvar"]
     }  
+	
+	for (k in 2:nrow(gns)) gns[k,"minvar"] <- gns[k-1,"maxvar"]
     gns[1,"minvar"] <- -Inf
     gns[nrow(gns),"maxvar"] <- Inf
     gns$category <- paste("(",format(gns$minvar,digits=3),"-",format(gns$maxvar,digits=3),")",sep="")
