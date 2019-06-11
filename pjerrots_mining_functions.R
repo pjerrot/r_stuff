@@ -246,8 +246,11 @@ modmetrics <- function(true, predicted) {
   if (is.factor(true)) true <- as.numeric(as.character(true))
   if (is.factor(predicted)) predicted <- as.numeric(as.character(predicted))
   
+  x <- na.omit(data.frame(true=true, predicted=predicted))
+  true <- x$true
+  predicted <- x$predicted
+  
   rsquare <- 1 - (sum((true-predicted )^2)/sum((true-mean(true))^2))
-  if (rsquare < 0) rsquare <- 0
   
   rmse <- Metrics::rmse(true,predicted)
   
