@@ -1386,6 +1386,12 @@ rank10 <- function(x,dir) {
   return(rank10)
 }
 
+rankx <- function(var,x, dir) {
+  rankx <- floor(x*rank(var)/length(var))+1
+  rankx <- ifelse(rankx==(x+1),x,rankx)
+  return(rankx)
+}
+
 runscript <- function(script,con, split=";") {
   sqlsvector <- starsplit(script,split)
   errors <- c()
