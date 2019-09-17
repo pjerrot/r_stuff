@@ -1092,9 +1092,14 @@ chi2 <- function(df,factvars) {
   tmp$residual <- tmp$Freq - tmp$expected
   tmp$std_sq_res <- tmp$residual^2/tmp$expected
   
-  out <- list(p = p,xsquared=xsquared, degF=degF, chi2data=tmp)
+  tmp[,"std_sq_res_sound"] <- ifelse(tmp[,"expected"]>4,tmp[,"std_sq_res"],0)
+  chi2_sum_sound <- sum(tmp[,"std_sq_res_sound"])
+  chi2_p_sound <- pchisq(chi2_sum_sound, df =  degF, lower.tail=FALSE)
+  
+  out <- list(p = p,xsquared=xsquared, degF=degF, chi2data=tmp,chi2_sum_sound=chi2_sum_sound, chi2_p_sound=chi2_p_sound)
   return(out)  
 }
+
 
 cv.glmnet.wrap <- function(form,
                            data,
