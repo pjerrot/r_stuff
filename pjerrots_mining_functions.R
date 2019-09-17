@@ -949,6 +949,7 @@ numtarget_graph <- function(df, x, y, barwidth=10, pdf=FALSE, pdfname=NULL) {
   
 }
 
+
 binary_explore <- function(df, y, pdf=FALSE, pdfname=NULL){
   library(reshape2)
   library(ggplot2)
@@ -964,7 +965,9 @@ binary_explore <- function(df, y, pdf=FALSE, pdfname=NULL){
   
   inputvars <- colnames(df)[c(!colnames(df) %in% y)]
   for (x in inputvars){
+    go <- FALSE
     go <- ifelse(is.numeric(df[,x]),TRUE,ifelse(length(unique(df[,x]))<40,TRUE,FALSE))
+    go <- ifelse(length(unique(na.omit(df[,x])))<2,FALSE,go)
     if (go==FALSE) inputvars <- inputvars[!inputvars %in% x]
   }
   
@@ -1027,7 +1030,7 @@ binary_explore <- function(df, y, pdf=FALSE, pdfname=NULL){
       df[,"x"] <- ifelse( df[,"x"]>maks,maks,ifelse(df[,"x"]<mini,mini,df[,"x"]))
       
       barwidth <- (max(df[,"x"])-min(df[,c("x")]))*0.75/14
-
+      
       if (length(unique(df$x))>12) {
         df$xmin <- ave(df$x, cut(df$x,12), FUN=min)
         df$xmax <- ave(df$x, cut(df$x,12), FUN=max)
@@ -1055,9 +1058,9 @@ binary_explore <- function(df, y, pdf=FALSE, pdfname=NULL){
         )
       print(plot)
       
-      } else {
-        warning <- "Error..."
-      }
+    } else {
+      warning <- "Error..."
+    }
     }
   
   if(pdf==TRUE) {
