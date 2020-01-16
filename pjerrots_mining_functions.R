@@ -246,11 +246,8 @@ modmetrics <- function(true, predicted) {
   if (is.factor(true)) true <- as.numeric(as.character(true))
   if (is.factor(predicted)) predicted <- as.numeric(as.character(predicted))
   
-  x <- na.omit(data.frame(true=true, predicted=predicted))
-  true <- x$true
-  predicted <- x$predicted
-  
   rsquare <- 1 - (sum((true-predicted )^2)/sum((true-mean(true))^2))
+  if (rsquare < 0) rsquare <- 0
   
   rmse <- Metrics::rmse(true,predicted)
   
@@ -949,7 +946,6 @@ numtarget_graph <- function(df, x, y, barwidth=10, pdf=FALSE, pdfname=NULL) {
   
 }
 
-
 binary_explore <- function(df, y, pdf=FALSE, pdfname=NULL){
   library(reshape2)
   library(ggplot2)
@@ -1058,15 +1054,26 @@ binary_explore <- function(df, y, pdf=FALSE, pdfname=NULL){
         )
       print(plot)
       
+      } else {
+        warning <- "Error..."
+      }
+      
+    if (exists("out")) {
+      out <- rbind(out,data.frame(var=x, gini=ginimet)) 
     } else {
-      warning <- "Error..."
+      out <- data.frame(var=x, gini=ginimet)
     }
+
+    
     }
   
   if(pdf==TRUE) {
     dev.off()
   }
+  out <- list(ginivalue_df = out)
+  return(out)
 }
+
 
 # categorizes numeric variable by either equal n or equal width
 
@@ -1095,14 +1102,9 @@ chi2 <- function(df,factvars) {
   tmp$residual <- tmp$Freq - tmp$expected
   tmp$std_sq_res <- tmp$residual^2/tmp$expected
   
-  tmp[,"std_sq_res_sound"] <- ifelse(tmp[,"expected"]>4,tmp[,"std_sq_res"],0)
-  chi2_sum_sound <- sum(tmp[,"std_sq_res_sound"])
-  chi2_p_sound <- pchisq(chi2_sum_sound, df =  degF, lower.tail=FALSE)
-  
-  out <- list(p = p,xsquared=xsquared, degF=degF, chi2data=tmp,chi2_sum_sound=chi2_sum_sound, chi2_p_sound=chi2_p_sound)
+  out <- list(p = p,xsquared=xsquared, degF=degF, chi2data=tmp)
   return(out)  
 }
-
 
 cv.glmnet.wrap <- function(form,
                            data,
@@ -1368,7 +1370,6 @@ cats <- function(x,n=7,method="eq_n", target=NULL) { # method either "eq_n" (sam
       
       gns <- sqldf("select * from gns where diffrank<>1") #fjerner diffrank=1 efter at denne er slået sammen med rækken ovenover.
     }  
-	
 	for (k in 2:nrow(gns)) gns[k,"minvar"] <- gns[k-1,"maxvar"]
     gns[1,"minvar"] <- -Inf
     gns[nrow(gns),"maxvar"] <- Inf
@@ -1392,12 +1393,6 @@ rank10 <- function(x,dir) {
   rank10 <- floor(10*rank(x)/length(x))+1
   rank10 <- ifelse(rank10==11,10,rank10)
   return(rank10)
-}
-
-rankx <- function(var,x, dir) {
-  rankx <- floor(x*rank(var)/length(var))+1
-  rankx <- ifelse(rankx==(x+1),x,rankx)
-  return(rankx)
 }
 
 runscript <- function(script,con, split=";") {
