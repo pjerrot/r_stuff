@@ -1499,12 +1499,14 @@ allglm <- function(nclus=-1, ...) {
     dfcl <<- df[,grep("_cldat",colnames(df), value=TRUE)]
     dfcl <- replace_na(dfcl,as.list(colMeans(dfcl,na.rm=T))) #imputer missing
     
-    kmeansfit <- kmeans(dfcl, nclus)
+    kmeansfit <- kmeans(dfcl, nclus, iter.max=20)
     df$cl_ <- kmeansfit$cluster
     df_scored$cl_ <- kmeansfit$cluster
     
     # Modeling each cluster
-    cluster_rules <- list()
+    #cluster_rules <- list()
+    cluster_rules <- data.frame(cl = character(0), rule = character(0), share_in_cl = numeric(0))
+    
     for (i in 1:nclus) {
       clname <- paste0("cl_",i)
       df[,clname] <- ifelse(df[,"cl_"]==i,1,0)
@@ -1512,16 +1514,18 @@ allglm <- function(nclus=-1, ...) {
       rpart.control(minsplit=10, minbucket = 4, maxdepth=30)
       treemod <- rpart(treeform,data=df)
       
-      cluster_rules <- list(cluster_rules,(rpart.rules(treemod)))
+      regler <- rpart.rules(treemod)
+      regler[,1] <- as.numeric(regler[,1])
+      regler <- regler[which(regler[1]==max(regler[1])),]
+      cluster_rules <- rbind(cluster_rules,data.frame(cl=colnames(regler[1]), rule = paste(regler[,2:ncol(regler)], collapse=" "), share_in_cl = regler[,1]))
     }
-    cluster_stats <- sqldf("select cl_, avg(target) as gns_target, avg(score) as gns_score, 
-                           count(*) as n from df_scored group by cl_ order by cl_")
+    cluster_stats <- sqldf("select a.*, avg_target, avg_score, n from  cluster_rules a 
+                          join (select cl_, avg(target) as avg_target, avg(score) as avg_score, count(*) as n from df_scored group by cl_) b on a.cl = 'cl_' || b.cl_")
   } else {
-    cluster_rules <- "No clusters"
+    cluster_stats <- "No clusters"
   }
   
-  out <- list(mod0,sql,scores,modmets,df_scored, kmeansfit, cluster_rules, cluster_stats)
-  names(out) <- c("model","sql","scores","modelmetrics","df_scored","kmeansfit","cluster_rules", "cluster_stats")
+  out <- list(mod0,sql,scores,modmets,df_scored, kmeansfit, cluster_stats)
+  names(out) <- c("model","sql","scores","modelmetrics","df_scored","kmeansfit", "cluster_stats")
   return(out)
 }
-
