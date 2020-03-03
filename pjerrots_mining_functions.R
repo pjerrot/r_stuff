@@ -1493,7 +1493,7 @@ allglm <- function(nclus=-1, ...) {
     for (i in 1:nrow(modcoeffs)) {
       if (!modcoeffs[i,"varname1"]=="(Intercept)") {
         #df <- sqldf(paste0("select a.*,'",modcoeffs[i,"sql"],"' as ",gsub("!|\\:|\\.| ","_",modcoeffs[i,"coeffname"]),"_cldat FROM df a"))
-        df <- sqldf(paste0("select a.*,",modcoeffs[i,"sql"]," as ",gsub("!|\\:|\\.| ","_",modcoeffs[i,"coeffname"]),"_cldat FROM df a"))
+        df <- sqldf(paste0("select a.*,",modcoeffs[i,"sql"]," as ",gsub(",|!|\\:|\\.|/| ","_",modcoeffs[i,"coeffname"]),"_cldat FROM df a"))
       }
     }
     dfcl <<- df[,grep("_cldat",colnames(df), value=TRUE)]
@@ -1509,7 +1509,7 @@ allglm <- function(nclus=-1, ...) {
       clname <- paste0("cl_",i)
       df[,clname] <- ifelse(df[,"cl_"]==i,1,0)
       treeform <- as.formula(paste(clname,"~",gsub("(|)","",frm[3])))
-      rpart.control(minsplit=20, minbucket = 6, maxdepth=30)
+      rpart.control(minsplit=10, minbucket = 4, maxdepth=30)
       treemod <- rpart(treeform,data=df)
       
       cluster_rules <- list(cluster_rules,(rpart.rules(treemod)))
