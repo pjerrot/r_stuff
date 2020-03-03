@@ -1435,3 +1435,93 @@ numextract <- function(string){
   library(stringr)
   str_extract(string, "\\-*\\d+\\.*\\d*")
 } 
+
+allglm <- function(nclus=-1, ...) {
+  require(rpart.plot)
+  require(stringr)
+  require(tidyr)
+  require(sqldf)
+  
+  source("https://raw.githubusercontent.com/pjerrot/r_stuff/master/pjerrots_mining_functions.R")
+  
+  #target <- as.character(list(...)[1])
+  params <<- list(...)
+  
+  frm0 <- params[["formula"]] # Need this to create model on original variables
+  frm <- as.character(params[["formula"]])
+  frm <- paste(frm[2],frm[1],frm[3])
+  frm <- as.formula(gsub("!|\\:|\\.","_",frm))
+  
+  df <- df0 <- params[["data"]]
+  
+  # only applicable for gaussian and binomial
+  fam <- params[["family"]]
+  fam <- ifelse(!"family" %in% names(params),"gaussian",fam)
+  
+  frmstr <- as.character(frm)
+  target <- frmstr[2]
+  if (fam=="binomial") df[,target] <- as.factor(as.character(df[,target]))
+  
+  # trimming varnames if ness.
+  colnames0 <- colnames(df) 
+  colnames(df) <- gsub("!|\\:|\\.| ","_",colnames(df))
+  
+  # building model for cluster models
+  mod <- glm(formula=frm,data=df, family=fam)
+  
+  if (!all(colnames0==colnames(df))) {
+    print("Column names were trimmed!")
+    mod0 <- glm(formula=frm0,data=df0, family=fam) # model on original vars
+  } else {
+    mod0 <- mod
+  }
+  
+  #extracting sql etc from model
+  sql <- glm_to_sql(mod) #returning sql
+  
+  #calculating scores
+  scores <- predict(mod,newdata=df,type="response")
+  df_scored <- cbind(df,data.frame("target"=df[,target],score=scores))
+  
+  # calculating model precision metrics
+  df_scored_nona <- na.omit(df_scored)
+  modmets <- modmetrics(df_scored_nona$target,df_scored_nona$score)
+  
+  # clustering
+  if (nclus>-1) {
+    options(sqldf.driver = "SQLite") 
+    for (i in 1:nrow(modcoeffs)) {
+      if (!modcoeffs[i,"varname1"]=="(Intercept)") {
+        #df <- sqldf(paste0("select a.*,'",modcoeffs[i,"sql"],"' as ",gsub("!|\\:|\\.| ","_",modcoeffs[i,"coeffname"]),"_cldat FROM df a"))
+        df <- sqldf(paste0("select a.*,",modcoeffs[i,"sql"]," as ",gsub("!|\\:|\\.| ","_",modcoeffs[i,"coeffname"]),"_cldat FROM df a"))
+      }
+    }
+    dfcl <<- df[,grep("_cldat",colnames(df), value=TRUE)]
+    dfcl <- replace_na(dfcl,as.list(colMeans(dfcl,na.rm=T))) #imputer missing
+    
+    kmeansfit <- kmeans(dfcl, nclus)
+    df$cl_ <- kmeansfit$cluster
+    df_scored$cl_ <- kmeansfit$cluster
+    
+    # Modeling each cluster
+    cluster_rules <- list()
+    for (i in 1:nclus) {
+      clname <- paste0("cl_",i)
+      df[,clname] <- ifelse(df[,"cl_"]==i,1,0)
+      treeform <- as.formula(paste(clname,"~",gsub("(|)","",frm[3])))
+      rpart.control(minsplit=20, minbucket = 6, maxdepth=30)
+      treemod <- rpart(treeform,data=df)
+      
+      cluster_rules <- list(cluster_rules,(rpart.rules(treemod)))
+    }
+    cluster_stats <- sqldf("select cl_, avg(target) as gns_target, avg(score) as gns_score, 
+                           count(*) as n from df_scored group by cl_ order by cl_")
+  } else {
+    cluster_rules <- "No clusters"
+  }
+  
+  out <- list(mod0,sql,scores,modmets,df_scored, kmeansfit, cluster_rules, cluster_stats)
+  names(out) <- c("model","sql","scores","modelmetrics","df_scored","kmeansfit","cluster_rules", "cluster_stats")
+  return(out)
+}
+
