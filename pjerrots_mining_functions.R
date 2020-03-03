@@ -443,7 +443,7 @@ gini_curve <- function(df,modelobj,targetdef,plotroc=FALSE){
 
 # parses glm (binary and gaussian) to sql
 
-glm_to_sql <- function(glmmodel) {
+glm_to_sql <- function(glmmodel, trimnames=FALSE) {
   library("sqldf")
   vartypes <- data.frame(unlist(attr(glmmodel$terms,'dataClasses')))
   vartypes$varname <- rownames(vartypes)
@@ -461,6 +461,10 @@ glm_to_sql <- function(glmmodel) {
   rownames(modcoeffs) <- NULL
   colnames(modcoeffs)[1] <- "coeffvalue"
   modcoeffs[is.na(modcoeffs$coeffvalue),"coeffvalue"] <- 0
+  
+  if (trimnames==TRUE) {
+    modcoeffs$coeffname <- gsub("!|\\:|\\.| ","_",modcoeffs$coeffname)
+  }
   
   for (i in 1:nrow(modcoeffs)) {    
     v <- unlist(strsplit(modcoeffs[i,"coeffname"], ":", fixed=FALSE))
@@ -577,7 +581,7 @@ glm_to_sql <- function(glmmodel) {
   assign("modcoeffs",modcoeffs,envir = .GlobalEnv)
   
   return(x.sql)
-
+  
 }
 
 # creates nice graph on numerical variable distribution combined with avg. target values
