@@ -1441,6 +1441,7 @@ allglm <- function(nclus=-1, ...) {
   require(stringr)
   require(tidyr)
   require(sqldf)
+  require(rpart)
   
   source("https://raw.githubusercontent.com/pjerrot/r_stuff/master/pjerrots_mining_functions.R")
   
