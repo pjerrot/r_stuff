@@ -1445,7 +1445,7 @@ allglm <- function(nclus=-1, ...) {
   source("https://raw.githubusercontent.com/pjerrot/r_stuff/master/pjerrots_mining_functions.R")
   
   #target <- as.character(list(...)[1])
-  params <<- list(...)
+  params <- list(...)
   
   frm0 <- params[["formula"]] # Need this to create model on original variables
   frm <- as.character(params[["formula"]])
@@ -1492,7 +1492,6 @@ allglm <- function(nclus=-1, ...) {
     options(sqldf.driver = "SQLite") 
     for (i in 1:nrow(modcoeffs)) {
       if (!modcoeffs[i,"varname1"]=="(Intercept)") {
-        #df <- sqldf(paste0("select a.*,'",modcoeffs[i,"sql"],"' as ",gsub("!|\\:|\\.| ","_",modcoeffs[i,"coeffname"]),"_cldat FROM df a"))
         df <- sqldf(paste0("select a.*,",modcoeffs[i,"sql"]," as ",gsub(",|!|\\:|\\.|/| ","_",modcoeffs[i,"coeffname"]),"_cldat FROM df a"))
       }
     }
@@ -1504,7 +1503,6 @@ allglm <- function(nclus=-1, ...) {
     df_scored$cl_ <- kmeansfit$cluster
     
     # Modeling each cluster
-    #cluster_rules <- list()
     cluster_rules <- data.frame(cl = character(0), rule = character(0), share_in_cl = numeric(0))
     
     for (i in 1:nclus) {
