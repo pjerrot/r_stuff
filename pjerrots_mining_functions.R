@@ -1494,7 +1494,7 @@ allglm <- function(nclus=-1, ...) {
     options(sqldf.driver = "SQLite") 
     for (i in 1:nrow(modcoeffs)) {
       if (!modcoeffs[i,"varname1"]=="(Intercept)") {
-        df <- sqldf(paste0("select a.*,",modcoeffs[i,"sql"]," as ",gsub(",|!|\\:|\\.|/| ","_",modcoeffs[i,"coeffname"]),"_cldat FROM df a"))
+        df <- sqldf(paste0("select a.*,",modcoeffs[i,"sql"]," as ",gsub(",|!|-|\\:|\\.|/| ","_",modcoeffs[i,"coeffname"]),"_cldat FROM df a"))
       }
     }
     dfcl <<- df[,grep("_cldat",colnames(df), value=TRUE)]
