@@ -1444,10 +1444,8 @@ allglm <- function(nclus=-1, ...) {
   require(rpart)
   require(tidyr)
   
-  source("https://raw.githubusercontent.com/pjerrot/r_stuff/master/pjerrots_mining_functions.R")
-  
   #target <- as.character(list(...)[1])
-  params <- list(...)
+  params <<- list(...)
   
   frm0 <- params[["formula"]] # Need this to create model on original variables
   frm <- as.character(params[["formula"]])
@@ -1467,7 +1465,7 @@ allglm <- function(nclus=-1, ...) {
   # trimming varnames if ness.
   colnames0 <- colnames(df) 
   colnames(df) <- gsub("!|\\:|\\.| ","_",colnames(df))
-  
+
   # building model for cluster models
   mod <- glm(formula=frm,data=df, family=fam)
   
@@ -1494,9 +1492,10 @@ allglm <- function(nclus=-1, ...) {
     options(sqldf.driver = "SQLite") 
     for (i in 1:nrow(modcoeffs)) {
       if (!modcoeffs[i,"varname1"]=="(Intercept)") {
-        df <- sqldf(paste0("select a.*,",modcoeffs[i,"sql"]," as ",gsub(",|!|-|\\:|\\.|/| ","_",modcoeffs[i,"coeffname"]),"_cldat FROM df a"))
+        df <- sqldf(paste0("select a.*,",modcoeffs[i,"sql"]," as ",str_replace_all(modcoeffs[i,"coeffname"], "[^[:alnum:]]", "_"),"_cldat FROM df a"))
       }
     }
+    
     dfcl <<- df[,grep("_cldat",colnames(df), value=TRUE)]
     dfcl <- replace_na(dfcl,as.list(colMeans(dfcl,na.rm=T))) #imputer missing
     
@@ -1520,7 +1519,7 @@ allglm <- function(nclus=-1, ...) {
       cluster_rules <- rbind(cluster_rules,data.frame(cl=colnames(regler[1]), rule = paste(regler[,2:ncol(regler)], collapse=" "), share_in_cl = regler[,1]))
     }
     cluster_stats <- sqldf("select a.*, avg_target, avg_score, n from  cluster_rules a 
-                          join (select cl_, avg(target) as avg_target, avg(score) as avg_score, count(*) as n from df_scored group by cl_) b on a.cl = 'cl_' || b.cl_")
+                           join (select cl_, avg(target) as avg_target, avg(score) as avg_score, count(*) as n from df_scored group by cl_) b on a.cl = 'cl_' || b.cl_")
   } else {
     cluster_stats <- "No clusters"
   }
