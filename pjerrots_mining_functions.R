@@ -1399,7 +1399,7 @@ rank10 <- function(x,dir) {
   return(rank10)
 }
 
-runscript <- function(script,con, split=";") {
+runscript <- function(script,con, split=";", contype="jdbc") {
   sqlsvector <- starsplit(script,split)
   errors <- c()
   for (sql in sqlsvector) {
@@ -1407,7 +1407,7 @@ runscript <- function(script,con, split=";") {
     possibleError <- tryCatch(
       {
         print(paste("Executing:", substr(sql,1,100)))
-        dbSendUpdate(con, sql)
+        if (contype=="jdbc") {dbSendUpdate(con, sql)} else {dbSendQuery(con, sql)}
       }
       ,
       error=function(e) {
