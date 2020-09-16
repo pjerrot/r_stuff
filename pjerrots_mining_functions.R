@@ -1528,3 +1528,34 @@ allglm <- function(nclus=-1, ...) {
   names(out) <- c("model","sql","scores","modelmetrics","df_scored","kmeansfit", "cluster_stats")
   return(out)
 }
+
+clean_string_for_strange_characters <- function(x) {
+  x <- str_replace_all(x, "[[:punct:]]", "_")
+  x <- str_replace_all(x, "æ", "ae")
+  x <- str_replace_all(x, "ø", "oe")
+  x <- str_replace_all(x, "å", "aa")
+  return(x)
+}
+
+clean_df_for_strange_characters <- function(df) {
+  for (x in colnames(df)) {
+    if (!checknum(df[,x])) {
+      if (is.character(df[,x])) {
+        df[,x] <- str_replace_all(df[,x], "[[:punct:]]", "_")
+        df[,x] <- str_replace_all(df[,x], "æ", "ae")
+        df[,x] <- str_replace_all(df[,x], "ø", "oe")
+        df[,x] <- str_replace_all(df[,x], "å", "aa")
+      }
+      
+      if (is.factor(df[,x])) {
+        df[,x] <- as.character(df[,x])
+        df[,x] <- str_replace_all(df[,x], "[[:punct:]]", "_")
+        df[,x] <- str_replace_all(df[,x], "æ", "ae")
+        df[,x] <- str_replace_all(df[,x], "ø", "oe")
+        df[,x] <- str_replace_all(df[,x], "å", "aa")
+        df[,x] <- as.factor(df[,x])
+      }
+    }
+  }
+  return(df)
+}
