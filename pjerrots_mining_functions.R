@@ -1183,8 +1183,9 @@ cv.glmnet.wrap <- function(form,
     sql <- paste("1/(1 + exp(-(",sql,")))" ,sep="") 
   }
   
-  fit <- list(fit,modform,coeffs,sql)
-  names(fit) <- c("fit","modform","coeffsdf","sql")
+  fitpmml <- pmml.cv.glmnet(fit)
+  fit <- list(fit,modform,coeffs,sql,fitpmml)
+  names(fit) <- c("fit","modform","coeffsdf","sql","pmml")
   out = fit
 }
 
