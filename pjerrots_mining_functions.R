@@ -1183,7 +1183,7 @@ cv.glmnet.wrap <- function(form,
     sql <- paste("1/(1 + exp(-(",sql,")))" ,sep="") 
   }
   
-  fitpmml <- pmml.cv.glmnet(fit)
+  fitpmml <- ifelse(family %in% c("gaussian","poisson"),pmml.cv.glmnet(fit),paste("PMML output not supported for",family,"models"))
   fit <- list(fit,modform,coeffs,sql,fitpmml)
   names(fit) <- c("fit","modform","coeffsdf","sql","pmml")
   out = fit
