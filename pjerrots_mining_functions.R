@@ -1259,12 +1259,13 @@ checknum <- function(var) {
 
 # categorizes numeric variable by either equal n or equal width
 
-
 cats <- function(x,n=7,method="eq_n", target=NULL) { # method either "eq_n" (same n in each group, "eq_w" ), "eq_w" (same width in each group) 
-                              # ... or "opt" (based on own algorithm shooting for target var). Default is eq_n.
-  library(sqldf)
-  library(rpart)
-  
+  # ... or "opt" (based on own algorithm shooting for target var). Default is eq_n.
+  require(sqldf)
+  require(rpart)
+
+  x <- data.frame(var = x)
+  x$id_ <- seq.int(nrow(x)) # to lock row order in df  
   x0 <- x
   x <- na.omit(x)
   
@@ -1291,12 +1292,15 @@ cats <- function(x,n=7,method="eq_n", target=NULL) { # method either "eq_n" (sam
                  a.x >= b.start 
                  and a.x < b.slut")
   } else if (method=="eq_n"){
-    
-    tmp <- data.frame(x,rankx = ceiling(n*rank(x, ties.method= "first")/length(x)))
+    tmp <- data.frame(x$var,rankx = ceiling(n*rank(x$var, ties.method= "first")/length(x$var)))
+    colnames(tmp) <- c("x","rankx")
     tmp2 <- aggregate(tmp, by=list(tmp$rankx), FUN=min, na.rm=FALSE)[,c("x","rankx")]
     tmp3 <- data.frame(rankx = tmp2$rankx, category=paste("(",tmp2$x,"-",aggregate(tmp, by=list(tmp$rankx), FUN=max, na.rm=FALSE)[[2]],")",sep=""))
-    
-    out <- sqldf("select category from tmp a join tmp3 b on a.rankx=b.rankx")
+    out <- sqldf("select distinct a0.id_, category 
+                 from x0 a0 
+                 left join tmp a on a.x=a0.var 
+                 left join tmp3 b on a.rankx=b.rankx 
+                 order by a0.id_")
     
   } else { #('opt')
     tmpdf <- data.frame(x=x0,target)
@@ -1308,7 +1312,7 @@ cats <- function(x,n=7,method="eq_n", target=NULL) { # method either "eq_n" (sam
     
     d <- tmpdf[,c("x","target")][order(tmpdf$x),]
     #d <- sqldf(paste("select x, target from tmpdf order by x"))
-
+    
     d$RANKVAR <- ceiling(grpsize*rank(d["x"], ties.method= "min")/nrow(tmpdf))
     
     gns <- sqldf(paste("select RANKVAR, min(x) as minvar, max(x) as maxvar,  
@@ -1375,24 +1379,22 @@ cats <- function(x,n=7,method="eq_n", target=NULL) { # method either "eq_n" (sam
       
       gns <- sqldf("select * from gns where diffrank<>1") #fjerner diffrank=1 efter at denne er slået sammen med rækken ovenover.
     }  
-	for (k in 2:nrow(gns)) gns[k,"minvar"] <- gns[k-1,"maxvar"]
+    for (k in 2:nrow(gns)) gns[k,"minvar"] <- gns[k-1,"maxvar"]
     gns[1,"minvar"] <- -Inf
     gns[nrow(gns),"maxvar"] <- Inf
     gns$category <- paste("(",format(gns$minvar,digits=3),"-",format(gns$maxvar,digits=3),")",sep="")
     
-	for (i in 2:nrow(gns)) {
+    for (i in 2:nrow(gns)) {
       gns[i,"minvar"] <- gns[i-1,"maxvar"]
     }
-	
+    
     out <- sqldf("select case when x is not null then category else '(NA-NA)' end as category 
                  from tmpdf a left join gns b on x> b.minvar and x<=b.maxvar")     
-
+    
   }
   
   return(out$category)
 }
-
-
 
 rank10 <- function(x,dir) {
   rank10 <- floor(10*rank(x)/length(x))+1
