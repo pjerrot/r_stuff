@@ -1263,7 +1263,7 @@ cats <- function(x,n=7,method="eq_n", target=NULL) { # method either "eq_n" (sam
   # ... or "opt" (based on own algorithm shooting for target var). Default is eq_n.
   require(sqldf)
   require(rpart)
-
+  
   x <- data.frame(var = x)
   x$id_ <- seq.int(nrow(x)) # to lock row order in df  
   x0 <- x
@@ -1296,10 +1296,11 @@ cats <- function(x,n=7,method="eq_n", target=NULL) { # method either "eq_n" (sam
     colnames(tmp) <- c("x","rankx")
     tmp2 <- aggregate(tmp, by=list(tmp$rankx), FUN=min, na.rm=FALSE)[,c("x","rankx")]
     tmp3 <- data.frame(rankx = tmp2$rankx, category=paste("(",tmp2$x,"-",aggregate(tmp, by=list(tmp$rankx), FUN=max, na.rm=FALSE)[[2]],")",sep=""))
-    out <- sqldf("select distinct a0.id_, category 
+    out <- sqldf("select a0.id_, max(category) as category 
                  from x0 a0 
                  left join tmp a on a.x=a0.var 
-                 left join tmp3 b on a.rankx=b.rankx 
+                 left join tmp3 b on a.rankx=b.rankx
+                 group by a0.id_
                  order by a0.id_")
     
   } else { #('opt')
