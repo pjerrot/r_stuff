@@ -1570,3 +1570,26 @@ detachAllPackages <- function() {
   package.list <- setdiff(package.list,basic.packages)
   if (length(package.list)>0)  for (package in package.list) detach(package, character.only=TRUE)
 }
+
+kmeans_score <- function(kmeans_model,df) {
+  require(sqldf)
+  kmc <- kmeans_model
+  
+  sql <- "select a.* "
+  for (k in 1:length(kmc$size)) {
+    sql <- paste(sql,paste0(",sqrt(",paste(paste0("power((",names(kmc$centers[k,])," - ",kmc$centers[k,],"),2)"),collapse="+"),") as dist_",k))
+  }
+  sql <- paste(sql," from df a")
+  tmp2 <- sqldf(sql)
+  
+  tmp2$distmin <- apply(tmp2[,grep("dist_",colnames(tmp2),value=TRUE)], 1, min)
+  
+  distvars <- grep("dist_",colnames(tmp2),value=TRUE)
+  tmp2[,"cluster"] <- 0
+  for (d in 1:length(distvars)) {
+    tmp2[,"cluster"] <- ifelse(tmp2[,distvars[d]]==tmp2[,"distmin"],d,tmp2[,"cluster"]) 
+  }
+  out <- list(tmp2$cluster, tmp2[,grep("dist",colnames(tmp2))], sql=sql)
+  names(out) <- c("cluster","dist","sql")
+  return(out)
+}
