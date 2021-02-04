@@ -1593,3 +1593,17 @@ kmeans_score <- function(kmeans_model,df) {
   names(out) <- c("cluster","dist","sql")
   return(out)
 }
+
+change_coltype_to_match_other_df <- function(change_df,to_df) {
+  for (col in colnames(to_df)) {
+    if (col %in% colnames(change_df)) {
+      if (is.factor(to_df[,col])) {
+        change_df[,col] <- as.factor(change_df[,col]) 
+      } else if (is.numeric(to_df[,col])) {
+        change_df[,col] <- as.numeric(change_df[,col])
+      }
+      if (typeof(to_df[,col]) == "character") change_df[,col] <- as.character(change_df[,col])
+    }
+  }
+  return(change_df)
+}
