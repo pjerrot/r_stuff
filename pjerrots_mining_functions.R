@@ -1297,6 +1297,7 @@ cats <- function(x,n=7,method="eq_n", target=NULL) { # method either "eq_n" (sam
     tmp2 <- aggregate(tmp, by=list(tmp$rankx), FUN=min, na.rm=FALSE)[,c("x","rankx")]
     
     for (i in 1:nrow(tmp2)) {
+      tmp2[i,"letter"] <- LETTERS[i]
       if (i==nrow(tmp2)) {
         tmp2[i,"minx"] <- tmp2[i,"x"]
         tmp2[i,"maxx"] <- 99999999
@@ -1305,7 +1306,7 @@ cats <- function(x,n=7,method="eq_n", target=NULL) { # method either "eq_n" (sam
         tmp2[i,"maxx"] <- tmp2[i+1,"x"]
       }
     }
-    tmp2$cat <- paste0("(",tmp2$minx,"-",tmp2$maxx,")")
+    tmp2$cat <- paste0("(",tmp2$letter,": ",tmp2$minx,"-",tmp2$maxx,")")
     
     #tmp3 <- data.frame(rankx = tmp2$rankx, category=paste("(",tmp2$x,"-",aggregate(tmp, by=list(tmp$rankx), FUN=max, na.rm=FALSE)[[2]],")",sep=""))
     out <- sqldf("select a0.id_, max(cat) as category 
