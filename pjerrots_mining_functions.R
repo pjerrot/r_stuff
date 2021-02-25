@@ -235,9 +235,7 @@ samp <- function(df,samp_n=1000, method="random"){
 # calculates r-squared on x,y value pairs
 # R squared
 r2 <- function(true, predicted) {
-  rsquare <- 1 - (sum((true-predicted )^2)/sum((true-mean(true))^2))
-  if (rsquare < 0) rsquare <- 0
-  return (rsquare)
+  cor(true,predicted)**2
 }
 
 modmetrics <- function(true, predicted) {
@@ -246,7 +244,7 @@ modmetrics <- function(true, predicted) {
   if (is.factor(true)) true <- as.numeric(as.character(true))
   if (is.factor(predicted)) predicted <- as.numeric(as.character(predicted))
   
-  rsquare <- 1 - (sum((true-predicted )^2)/sum((true-mean(true))^2))
+  rsquare <- cor(true,predicted)**2
   if (rsquare < 0) rsquare <- 0
   
   rmse <- Metrics::rmse(true,predicted)
