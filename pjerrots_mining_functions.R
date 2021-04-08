@@ -1616,3 +1616,21 @@ change_coltype_to_match_other_df <- function(change_df,to_df) {
   }
   return(change_df)
 }
+
+corresp <- function(df,cat1,cat2,val,reverse=FALSE) {
+  library(reshape2)
+  library(ca)
+  df2 <- dcast(df, cat1 ~ cat2, value.var = "val")
+  for (v in colnames(df2)) df2[is.na(df2[,v]),v] <- 1
+  for (v in 2:ncol(df2)) df2[,v] <- as.numeric(df2[,v])
+  row.names(df2) <- df2[,1]
+  if (reverse == TRUE) {
+    m <- max(df2[,2:ncol(df2)])
+    for (v in 2:ncol(df2)) df2[,v] <- m - df2[,v] +1
+  }
+  df2[,1] <- NULL
+  ca1 = ca(df2)
+  ca1$sv
+  plot(ca1, xlim=c(-0.3,0.3), ylim=c(-0.2,0.2) )
+  return(ca1)
+}
