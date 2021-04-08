@@ -1631,6 +1631,6 @@ corresp <- function(df,cat1,cat2,val,reverse=FALSE) {
   df2[,1] <- NULL
   ca1 = ca(df2)
   ca1$sv
-  plot(ca1, xlim=c(-0.3,0.3), ylim=c(-0.2,0.2) )
+  plot(ca1)
   return(ca1)
 }
