@@ -1,4 +1,4 @@
-# Functions:
+# Functions
 
 #giniauc : gini and auc
 #samp : sample df
