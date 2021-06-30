@@ -1284,6 +1284,7 @@ cats <- function(x,n=7,method="eq_n", target=NULL) { # method either "eq_n" (sam
     tmp[1,"start"] <- -Inf
     tmp[nrow(tmp),"slut"] <- Inf
     x2 <- data.frame(x=x0)
+    colnames(x2) <- c("x","id_")
     out <- sqldf("select x, case when x is not null then category else '(NA-NA)' end as category 
                  from x2 a 
                  left join tmp b on 
