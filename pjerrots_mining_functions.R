@@ -955,6 +955,9 @@ binary_explore <- function(df, y, pdf=FALSE, pdfname=NULL){
   
   options(sqldf.driver = "SQLite") # sqldf sql driver points back to SQLite for local data handling
   
+  rm(out_shares)
+  rm(out)
+  
   if(pdf==TRUE) {
     #pdf(pdfname,width=20)
     pdf(pdfname)
@@ -1018,6 +1021,11 @@ binary_explore <- function(df, y, pdf=FALSE, pdfname=NULL){
       
       if (nrow(df2)>3) plot <- plot + coord_flip()
       
+      df2$var <- x 
+      df2 <- df2[,c("var","xCenter2","dist","share")] 
+      colnames(df2) <- c("var","value","n",paste0("share_",y))
+      if (exists("outshares")) {outshares <- rbind(outshares,df2)} else {outshares <- df2} 
+      
       print(plot)
     } else if (is.numeric(df[,c("x")])) { # numeric
       
@@ -1056,23 +1064,28 @@ binary_explore <- function(df, y, pdf=FALSE, pdfname=NULL){
         )
       print(plot)
       
-      } else {
-        warning <- "Error..."
-      }
+      df2$var <- x 
+      df2 <- df2[,c("var","xCenter2","dist","share")] 
+      colnames(df2) <- c("var","value","n",paste0("share_",y))
+      if (exists("outshares")) {outshares <- rbind(outshares,df2)} else {outshares <- df2} 
       
+    } else {
+      warning <- "Error..."
+    }
+    
     if (exists("out")) {
       out <- rbind(out,data.frame(var=x, gini=ginimet)) 
     } else {
       out <- data.frame(var=x, gini=ginimet)
     }
-
     
-    }
+  }
   
   if(pdf==TRUE) {
     dev.off()
   }
-  out <- list(ginivalue_df = out)
+  out <- list(out,outshares)
+  names(out) <- c("ginivalue_df","outshares_df")
   return(out)
 }
 
