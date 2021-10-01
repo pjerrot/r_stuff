@@ -1557,6 +1557,7 @@ allglm <- function(nclus=-1, ...) {
 }
 
 clean_string_for_strange_characters <- function(x) {
+	library(stringr)
   x <- str_replace_all(x, "[[:punct:]]", "_")
   x <- str_replace_all(x, "æ", "ae")
   x <- str_replace_all(x, "ø", "oe")
@@ -1565,6 +1566,7 @@ clean_string_for_strange_characters <- function(x) {
 }
 
 clean_df_for_strange_characters <- function(df) {
+	library(stringr)
   for (x in colnames(df)) {
     if (!checknum(df[,x])) {
       if (is.character(df[,x])) {
