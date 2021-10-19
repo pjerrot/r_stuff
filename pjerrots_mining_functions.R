@@ -1650,3 +1650,182 @@ corresp <- function(df,cat1,cat2,val,reverse=FALSE) {
   plot(ca1)
   return(ca1)
 }
+
+
+stringBTMclus <- function(df,textvarname,grpname=NULL,n_clusters,avoidwords=NULL, doPDF=FALSE,pdfname=NULL) {
+  #library(NLP)
+  library(tm)
+  library(RColorBrewer)
+  library(wordcloud)
+  library(stringr)
+  #library(topicmodels)
+  #library(SnowballC)
+  library(udpipe)
+  library(data.table)
+  library(stopwords)
+  library(BTM)
+  library(sqldf)
+  library(dplyr)
+  library(textplot)
+  library(ggraph)
+  #library(concaveman)
+  source("https://raw.githubusercontent.com/pjerrot/r_stuff/master/pjerrots_mining_functions.R")
+  
+  # Unsupervised clustering of search strings ####
+  df$number_ <- seq(1:nrow(df))
+  x <- df
+  x$text <- df[,textvarname]
+  if (!is.null(grpname)) {x$doc_id <- df[,grpname]} else {x$doc_id <- "None"}
+  
+  # Creating x dataframe reserved for text analysis ####
+  x <- as.data.frame(x[,c("number_","doc_id","text")])
+  
+  # Cleaning data ####
+  tryCatch({
+    x$text <- gsub("'s","s",x$text,useBytes = TRUE)
+    x$text <- gsub("\xd5s","s",x$text,useBytes = TRUE)
+    x$text <- gsub("\\\\", "", x$text,useBytes = TRUE)
+    x$text <- gsub("?", "", x$text, fixed=TRUE,useBytes = TRUE)
+    x$text <- gsub("\xf0s", "s", x$text,useBytes = TRUE)
+    x$text  <- str_replace_all(x$text, "[[:punct:]]", "")
+    x <- clean_df_for_strange_characters(x)
+  },
+  # ... but if an error occurs, tell me what happened: 
+  error=function(error_message) {
+    message(error_message)
+    return(NA)
+  }
+  )
+  
+  # Below snippet removes "invalid multibyte string" problem ####
+  x$text_2 <- "Unknown"
+  for (i in 1:nrow(x)){
+    tryCatch({
+      w <- c()
+      for (j in 1:nchar(x[i,"text"])) {
+        w <- c(w,substr(x[i,"text"],j,(j)))
+      }
+      x[i,"text_2"] <- paste(w,collapse = "")
+    },
+    error=function(error_message) {
+      message(error_message)
+      return(NA)
+    }
+    )
+  }
+  x$text <- NULL
+  colnames(x) <- c("number_","doc_id","text")
+  
+  x2 <- x
+  x2$text <- str_trim(gsub(paste0(avoidwords,collapse="|"),"",x2$text))
+  
+  rm(anno)
+  anno    <- udpipe(x2[,c("doc_id","text")], "english", trace = 10)
+  
+  biterms <- as.data.table(anno)
+  biterms <- biterms[, cooccurrence(x = lemma,
+                                    relevant = upos %in% c("NOUN", "ADJ", "VERB") & 
+                                      nchar(lemma) > 2 & !lemma %in% c(avoidwords,stopwords("en")),
+                                    skipgram = 3),
+                     by = list(doc_id)]
+  
+  set.seed(123456)
+  traindata <- subset(anno, upos %in% c("NOUN", "ADJ", "VERB") & !lemma %in% stopwords("en") & nchar(lemma) > 2)
+  traindata <- traindata[, c("doc_id", "lemma")]
+  model     <- BTM(traindata, biterms = biterms, k = n_clusters, iter = 2000, background = TRUE, trace = 100)
+  
+  # Showing most important terms in each cluster ####
+  ord <- terms(model, top_n=30)
+  orddf <- ord[[1]]
+  orddf$cluster <- 1
+  for (i in 2:length(ord)) {
+    orddf0 <- ord[[i]]
+    orddf0$cluster <- i
+    orddf <- rbind(orddf,orddf0)
+  }
+  orddf <- orddf[order(orddf$cluster,-orddf$probability),]
+  
+  # Using the 2 most important words in cluster as label for cluster ####
+  lalbes <- terms(model,top_n=2)
+  labels <- c()
+  for (i in 1:length(lalbes)) {labels <- c(labels,paste(lalbes[[i]]$token,collapse="/"))}
+  labels <- data.frame(labels)
+  labels$cluster <- seq(nrow(labels))
+  
+  # Assigning cluster to all search strings ####
+  tmp <- sqldf("select distinct a.*, b.* from x a 
+                                join orddf b on a.text like '%' || token || '%'")
+  
+  # type 1: combined probability
+  tst <- tmp %>% group_by(number_,text,cluster) %>% summarise(bestp = 1- prod((1-probability)))  
+  tst <- data.frame(tst)
+  
+  searchstring_cluster_assignment_unsup <- sqldf("select distinct a.*, labels 
+                                            from tst a 
+                                            join (select text, max(bestp) as maxbestp
+                                                from tst group by text) b on bestp=maxbestp and a.text=b.text
+                                            join labels c on c.cluster = a.cluster")
+  
+  searchstring_cluster_assignment_unsup <- searchstring_cluster_assignment_unsup[order(searchstring_cluster_assignment_unsup$cluster,
+                                                                                       -searchstring_cluster_assignment_unsup$bestp),]
+  
+  clusterstats <- searchstring_cluster_assignment_unsup %>% 
+    group_by(cluster,labels) %>% 
+    summarise(n = n())
+  clusterstats$relfreq <- clusterstats$n/sum(clusterstats$n)   
+  
+  
+  # wordclouds on unsupervised clusters ####
+  if (doPDF==TRUE) {
+    dev.off()
+    pdf(file = pdfname,   # The directory you want to save the file in
+        width = 9, # The width of the plot in inches
+        height = 6) # The height of the plot in inches
+  }
+  
+  # plotting model again
+  modplot <- plot(model, top_n = n_clusters,
+       title = "BTM cluster model", 
+       #subtitle = paste("Clustering keywords:",keyword),
+       labels = labels
+  )
+  plot(modplot)
+  
+  for (grp in unique(searchstring_cluster_assignment_unsup$labels)) {
+    # Convert to tm corpus and use its API for some additional fun
+    corpus <- Corpus(VectorSource(searchstring_cluster_assignment_unsup[which(searchstring_cluster_assignment_unsup$labels==grp),"text"]))  # Create corpus object
+    
+    # Remove English stop words. This could be greatly expanded!
+    # Don't forget the mc.cores thing
+    corpus <- tm_map(corpus, removeWords, stopwords("en"))  
+    
+    # Remove numbers. This could have been done earlier, of course.
+    corpus <- tm_map(corpus, removeNumbers, mc.cores=1)
+    
+    # Stem the words. Google if you don't understand
+    corpus <- tm_map(corpus, stemDocument)
+    
+    # Remove the stems associated with our search terms!
+    corpus <- tm_map(corpus, removeWords, avoidwords)
+    
+    pal <- brewer.pal(8, "Dark2")
+    layout(matrix(c(1, 2), nrow=2), heights=c(1, 8))
+    par(mar=rep(0, 4))
+    plot.new()
+    text(x=0.5, y=0.5, grp)
+    wordcloud(corpus, min.freq=2, max.words = 200, random.order = FALSE, col = pal, main="title")
+  }
+  if (doPDF==TRUE) dev.off()
+  
+  df <- sqldf("select a.*, b.cluster, b.labels as cluster_label 
+                          from df a 
+                          left join searchstring_cluster_assignment_unsup b on a.number_=b.number_")
+  
+  clusters <- searchstring_cluster_assignment_unsup[,c("number_","text","cluster","labels")]
+  clusters <- clusters[order(clusters$number_),]
+  clusters$number_ <- NULL
+  
+  out <- list(clusters,modplot,clusterstats,orddf)
+  names(out) <- c("clusters","modplot","clusterstats","worddf")
+  return(out)
+}
