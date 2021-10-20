@@ -1821,7 +1821,7 @@ stringBTMclus <- function(df,textvarname,grpname=NULL,n_clusters,avoidwords=NULL
                           from df a 
                           left join searchstring_cluster_assignment_unsup b on a.number_=b.number_")
   
-  clusters <- searchstring_cluster_assignment_unsup[,c("number_","text","cluster","labels")]
+  clusters <- df[,c("number_",textvarname,"cluster","cluster_label")]
   clusters <- clusters[order(clusters$number_),]
   clusters$number_ <- NULL
   
