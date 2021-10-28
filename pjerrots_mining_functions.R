@@ -1200,7 +1200,7 @@ cv.glmnet.wrap <- function(form,
   out = fit
 }
 
-predict.cv.glmnet.wrap <- function(object, newdata,  s = "lambda.min", gamma = gamma.min,...) {    
+predict.cv.glmnet.wrap <- function(object, newdata,  s = "lambda.min", gamma = "gamma.min",...) {    
     library("glmnet")
     
     xes <- trimws(unlist(strsplit(as.character(as.formula(object$modform))[3], split="+", fixed=TRUE))) 
