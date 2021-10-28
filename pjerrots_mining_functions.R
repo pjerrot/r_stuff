@@ -1200,18 +1200,15 @@ cv.glmnet.wrap <- function(form,
   out = fit
 }
 
-predict.cv.glmnet.wrap <- function(object, newdata,  s = c("lambda.1se", "lambda.min"),
-                                   gamma = c("gamma.1se", "gamma.min"),...) {
-  
-  library("glmnet")
-
-  xes <- trimws(unlist(strsplit(as.character(as.formula(object$modform))[3], split="+", fixed=TRUE))) 
-  xform <- as.formula(paste("~",paste(xes,collapse="+")))
-  inputmatrix <- model.matrix(xform,  newdata)
-  
-  scores <- predict(object$fit,newx=inputmatrix, s=s, gamma=gamma, type="response")
-
-  return(scores)
+predict.cv.glmnet.wrap <- function(object, newdata,  s = "lambda.min", gamma = gamma.min,...) {    
+    library("glmnet")
+    
+    xes <- trimws(unlist(strsplit(as.character(as.formula(object$modform))[3], split="+", fixed=TRUE))) 
+    xform <- as.formula(paste("~",paste(xes,collapse="+")))
+    inputmatrix <- model.matrix(xform,  newdata)
+    
+    scores <- predict(object$fit,newx=inputmatrix, s=s, gamma=gamma, type="response")
+    return(scores)
 }
 
 waffle_plot <- function(df,x,y=NULL,maintitle=NULL, subtitle=NULL){
