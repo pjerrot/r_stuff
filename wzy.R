@@ -1,5 +1,6 @@
 # init ####
-wzy.init <- function(title="output", file="output.html", author="", includecontentblock=TRUE, pdfcopy=FALSE) {
+wzy.init <- function(title="output", file="output.html", author="", 
+                     includecontentblock=TRUE, pdfcopy=FALSE) {
   .wjavafuns <<- c()
   .wcontent <<- c()
   .wcontentblock <<- c()
@@ -262,6 +263,8 @@ wzy.GGPLOT.insert <- function(plot, chart_title=NULL, titlefontsize=18,align="ce
 
 # insert.COLUMNCHART ####
 wzy.COLUMNCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","mean","median","sd"), 
+                                     stacked = FALSE,
+                                     fullstacked = FALSE,
                                      annotation_var = NULL,
                                      chart_title=NULL,
                                      titlefontsize=18,
@@ -302,6 +305,16 @@ wzy.COLUMNCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","
   htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Column chart of ",paste(num_vars, collapse=" and ")," - by ",group_var)),"',\n"))
   htmp <- paste0(htmp,"width: ",width,",\n")
   htmp <- paste0(htmp,"height: ",height,",\n")
+  
+  if (fullstacked==TRUE) {
+    htmp <- paste0(htmp,"isStacked: 'percent',\n")
+  } ifelse (stacked==TRUE) {
+    htmp <- paste0(htmp,"isStacked: true,\n")
+  } else {
+    htmp <- htmp
+  }
+  
+#  if (fullstacked==TRUE) htmp <- paste0(htmp,"options_fullStacked = {isStacked: 'percent'},\n")
   htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
   if (length(num_vars)==1) {htmp <- paste0(htmp,"vAxis: {title: '",gsub("asis ","",paste(fun,num_vars[1])),"'},\n")}
@@ -341,7 +354,7 @@ wzy.SCATTERPLOT.insert <- function(df, x, y,
   htmp <- paste0(htmp, paste0("['",x,"','",y,"'],\n"))
   
   set.seed(1234)
-  df <- df[order(runif(nrow(df))),][1:samplesize,]
+  df <- df[order(runif(nrow(df))),][1:min(samplesize,nrow(df)),]
   
   # data values
   df <- data.frame(df)
@@ -359,7 +372,6 @@ wzy.SCATTERPLOT.insert <- function(df, x, y,
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
   htmp <- paste0(htmp,"vAxis: {title: '",y,"', minValue: ",min(df[,y]) - (max(df[,y]) - min(df[,y]))*0.1,", maxValue: ",max(df[,y]) + (max(df[,y]) - min(df[,y]))*0.1,"}, \n")
   htmp <- paste0(htmp,"hAxis: {title: '",x,"', minValue: ",min(df[,x]) - (max(df[,x]) - min(df[,x]))*0.1,", maxValue: ",max(df[,x]) + (max(df[,x]) - min(df[,x]))*0.1,"}, \n")
-  htmp <- paste0(htmp,"bar: {groupWidth: '95%'},\n")
   if (!is.null(legendposition)) {htmp <- paste0(htmp,"legend: { position: '",legendposition,"' },\n")}
   if (trendline==TRUE) {htmp <- paste0(htmp,"trendlines: { 0: {} },\n")}
   htmp <- paste0(htmp,"};\n\n")
@@ -371,6 +383,87 @@ wzy.SCATTERPLOT.insert <- function(df, x, y,
   .wjavafuns <<- c(.wjavafuns,htmp)
   .wcontent <<- c(.wcontent,paste0("<table align='",align,"'><tr><td><div id='scatterplot_values",tilfstr,"'></div></td></tr></table><br>\n"))
 }
+
+# insert.BUBBLECHART ####
+wzy.BUBBLECHART.insert <- function(df, 
+                                   x, y,
+                                   idvar = NULL,
+                                   groupvar = NULL,
+                                   groupsizevar = NULL,
+                                   samplesize = -1,
+                                   chart_title=NULL,
+                                   titlefontsize=18,
+                                   legendposition = c("right"),
+                                   align="left", width="700", height="600") {
+  library(dplyr)
+  
+  tilfstr <- as.character(floor(runif(1)*1000))
+  
+  htmp <- paste0("\ngoogle.charts.load('current', {'packages':['corechart','bar']}); \n")
+  htmp <- paste0(htmp,"google.charts.setOnLoadCallback(drawChart",tilfstr,"); \n")
+  
+  htmp <- paste0(htmp, "function drawChart",tilfstr,"() {\n")
+  htmp <- paste0(htmp,"var data = google.visualization.arrayToDataTable([ \n")
+  
+  if (is.null(idvar)) {
+    df[,"id_"] <- seq(1:nrow(df))
+    idvar <- "id_"
+  }
+  if (is.null(groupvar)) {
+    groupvar <- "grp_"
+    df[,groupvar] <- "all"
+    groupsizevar = "grpsize_"
+    df[,groupsizevar] <- 1
+  }
+  if (is.null(groupsizevar)) {
+    groupsizevar <- "grpsize_"
+    df[,groupsizevar] <- 1
+  }
+  df <- na.omit(df)
+  
+  # column names 
+  htmp <- paste0(htmp, paste0("['",idvar,"','",x,"','",y,"','",groupvar,"','",groupsizevar,"'],\n"))
+  
+  set.seed(1234)
+  if (samplesize>-1) {
+    df <- df[order(runif(nrow(df))),][1:min(samplesize,nrow(df)),]
+  }
+  
+  # data values
+  #df <- data.frame(df)
+  for (i in 1:nrow(df)) {
+    htmp <- paste0(htmp, paste0("['",df[i,idvar],"', ", df[i,x],",",df[i,y],", '",df[i,groupvar],"',", df[i,groupsizevar]," ]",ifelse(!i==nrow(df),",",""),"\n"))
+  }
+  
+  htmp <- paste0(htmp,"]);\n\n") 
+  
+  htmp <- paste0(htmp,"var options = {\n")
+  htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Bubble chart of ",x, " vs. ",y,"',\n"))))
+  htmp <- paste0(htmp,"width: ",width,",\n")
+  htmp <- paste0(htmp,"height: ",height,",\n")
+  htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
+  htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
+  htmp <- paste0(htmp,"vAxis: {title: '",y,"', minValue: ",min(df[,y]) - (max(df[,y]) - min(df[,y]))*0.1,", maxValue: ",max(df[,y]) + (max(df[,y]) - min(df[,y]))*0.1,"}, \n")
+  htmp <- paste0(htmp,"hAxis: {title: '",x,"', minValue: ",min(df[,x]) - (max(df[,x]) - min(df[,x]))*0.1,", maxValue: ",max(df[,x]) + (max(df[,x]) - min(df[,x]))*0.1,"}, \n")
+  
+  if (groupsizevar=="grpsize_") htmp <- paste0(htmp,"bubble:  {textStyle: {fontSize: 8}, sizeAxis: {maxValue: 3}},\n")
+  htmp <- paste0(htmp,"sizeAxis: {minSize: 8, maxSize: 9},\n")
+  
+  #
+  #  if (groupsizevar=="grpsize_") htmp <- paste0(htmp," {pointSize: 2}, \n")
+  #htmp <- paste0(htmp,"},\n")
+  
+  if (!is.null(legendposition)) {htmp <- paste0(htmp,"legend: { position: '",legendposition,"' },\n")}
+  htmp <- paste0(htmp,"};\n\n")
+  
+  htmp <- paste0(htmp, "var chart = new google.visualization.BubbleChart(document.getElementById('scatterplot_values",tilfstr,"'));\n")
+  htmp <- paste0(htmp,"chart.draw(data, options);\n")
+  htmp <- paste0(htmp, "}\n\n") # closing function...
+  
+  .wjavafuns <<- c(.wjavafuns,htmp)
+  .wcontent <<- c(.wcontent,paste0("<table align='",align,"'><tr><td><div id='scatterplot_values",tilfstr,"'></div></td></tr></table><br>\n"))
+}
+
 
 # insert.PIECHART ####
 wzy.PIECHART.insert <- function(df, group_var, num_var, fun=c("asis","sum","mean","median","sd"), 
@@ -531,6 +624,7 @@ wzy.HTMLTABLE.init <- function(table_id=1,n_rows=2,n_cols=2,width='80%', border=
   .wcontent <<- c(.wcontent,htmp)
 }
 
+# 2HTMLTABLE.insert ####
 wzy.2HTMLTABLE.insert <- function(table_id=1, cell_id="[1,1]", content) {
   .wcontent <<- c(.wcontent,paste0("INSERT2HTMLTABLE(id=",table_id,",cell_id=",cell_id,")"))
   content
