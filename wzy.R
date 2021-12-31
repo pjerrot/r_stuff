@@ -174,6 +174,7 @@ wzy.wrapup <- function() {
   html <- paste(html,"</html>")
   
   write.table(html,.wfile,row.names=FALSE,col.names=FALSE,quote=FALSE)   
+  print(paste0("Your HTML file has been saved as: ",.wfile))
   
   if (.pdfcopy==TRUE) {
     print("PDF copy not enabled yet.")
