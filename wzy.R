@@ -1,5 +1,7 @@
 # init ####
 wzy.init <- function(title="output", file="output.html", author="", 
+                     leftmargin = 70,
+                     cellpadding = 7,
                      includecontentblock=TRUE, pdfcopy=FALSE) {
   .wjavafuns <<- c()
   .wcontent <<- c()
@@ -7,28 +9,31 @@ wzy.init <- function(title="output", file="output.html", author="",
   .wtitel <<- title
   .wfile <<- file
   .author <<- author
+  .leftmargin <<- leftmargin
+  .cellpadding <<- cellpadding
   .includecontentblock <<- includecontentblock
   .pdfcopy <<- pdfcopy
 }
 
 # insert.TITLE ####
-wzy.TITLE.insert <- function(str, size=c("h3","h1","h2","h4","h5","h6"), small=FALSE, link=NULL) {
+wzy.TITLE.insert <- function(str, size=c("h3","h1","h2","h4","h5","h6"), small=FALSE, link=NULL, align="left", color="black") {
   size <- size[1]
   a_name <- paste0(size,"_idx_",floor(runif(1)*10000))
   contentblock_str <- paste0("<a href='#",a_name,"'>",str,"</a>")
   .wcontentblock <<- c(.wcontentblock,contentblock_str)
   
+  tmp <- paste0("<table width='100%' cellpadding=",.cellpadding," align=",align,"><tr><td width=",.leftmargin,"></td><td>")
   if (is.null(link)) {
-    .wcontent <<- c(.wcontent,paste0("<",size,">",ifelse(small==TRUE,"<small>",""),"<a name='",a_name,"'>",str,"</a>",ifelse(small==TRUE,"</small>",""),"</",size,">\n"))
+    .wcontent <<- c(.wcontent,paste0(tmp,"<",size,">",ifelse(small==TRUE,"<small>",""),"<a name='",a_name,"'><font color='",color,"'>",str,"</font></a>",ifelse(small==TRUE,"</small>",""),"</",size,"></td></tr></table>\n"))
   } else {
-    .wcontent <<- c(.wcontent,paste0("<",size,"><a name='",a_name,"' href='",link,"'>",ifelse(small==TRUE,"<small>",""),
-                                     str,ifelse(small==TRUE,"</small>",""),"</a></",size,">\n"))
+    .wcontent <<- c(.wcontent,paste0(tmp,"<",size,"><a name='",a_name,"' href='",link,"'>",ifelse(small==TRUE,"<small>",""),"<font color='",color,"'>",
+                                     str,"</font>",ifelse(small==TRUE,"</small>",""),"</a></",size,"></td></tr></table>\n"))
   }
 }
 
 # insert.HORISONTALLINE ####
 wzy.HORISONTALLINE.insert <- function(color="black",thickness=1, width="80%") {
-  .wcontent <<- c(.wcontent,paste0("<hr style='height:",thickness,"px;width:",width,";background-color:",color,"'/><br>\n"))
+  .wcontent <<- c(.wcontent,paste0("<table width='100%'><tr><td><hr align='center' style='height:",thickness,"px;width:",width,";background-color:",color,"'/></td></tr></table>\n"))
 }
 
 # insert.LINEBREAK ####
@@ -43,9 +48,9 @@ wzy.HTML.insert <- function(str) {.wcontent <<- c(.wcontent,str)}
 wzy.TEXT.insert <- function(str, fontsize=14, fontface="Arial", 
                               align="left", 
                               boxwidth=850,
-                              leftmargin = 70,
+                              leftmargin = .leftmargin,
                               cellpadding=10) {
-  htmp <- paste0("<table align='",align,"' width=",boxwidth," cellpadding=",cellpadding,"><tr><td width=",leftmargin,"></td><td><a style='font-family:",fontface,"; font-size:",fontsize,"'>",str,"</a></td></tr></table>")
+  htmp <- paste0("<table align='",align,"' width=",boxwidth," cellpadding=",.cellpadding,"><tr><td width=",.leftmargin,"></td><td><a style='font-family:",fontface,"; font-size:",fontsize,"'>",str,"</a></td></tr></table>")
   .wcontent <<- c(.wcontent,htmp)
 }
 
@@ -94,7 +99,7 @@ wzy.DATAFRAME.insert <- function(df, align="center", maxrows=50, pagesize=10,
   htmp <- paste0(htmp, "}\n\n")
   
   .wjavafuns <<- c(.wjavafuns,htmp)
-  .wcontent <<- c(.wcontent,paste0("<table align='",align,"'><tr><td>",title,"</td></tr><tr><td><div id='table_div",tilfstr,"'></div></td></tr></table><br>\n"))
+  .wcontent <<- c(.wcontent,paste0("<table width='",width," 'align='",align,"' cellpadding=",.cellpadding,"><tr><td>",title,"</td></tr><tr><td><div id='table_div",tilfstr,"'></div></td></tr></table><br>\n"))
 }
 
 #wrapup ####
@@ -170,15 +175,16 @@ wzy.wrapup <- function() {
   
   html <- paste(html,html0)
   
-  html <- paste(html,"</td><td bgcolor='grey'></td></tr></table></body>")
+  html <- paste(html,"\n</td><td bgcolor='grey'></td></tr>\n</table>\n</body>\n")
   html <- paste(html,"</html>")
   
   write.table(html,.wfile,row.names=FALSE,col.names=FALSE,quote=FALSE)   
   print(paste0("Your HTML file has been saved as: ",.wfile))
   
   if (.pdfcopy==TRUE) {
-    print("PDF copy not enabled yet.")
-
+    print("PDF copy is still beta.")
+    pdffile <- gsub("html","pdf",.wfile)
+    chrome_print(.wfile,pdffile,format="pdf",timeout=50,wait=3)
   }
   
   return(html)
@@ -239,7 +245,7 @@ wzy.BARCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","mea
   htmp <- paste0(htmp, "}\n\n") # closing function...
   
   .wjavafuns <<- c(.wjavafuns,htmp)
-  .wcontent <<- c(.wcontent,paste0("<table align='",align,"'><tr><td><div id='barchart_values",tilfstr,"'></div></td></tr></table>\n"))
+  .wcontent <<- c(.wcontent,paste0("<table align='",align,"' cellpadding=",.cellpadding,",><tr><td><div id='barchart_values",tilfstr,"'></div></td></tr></table>\n"))
 }
 
 # insert.GGPLOT ####
@@ -258,7 +264,7 @@ wzy.GGPLOT.insert <- function(plot, chart_title=NULL, titlefontsize=18,align="ce
   }
   
   hg <- encodeGraphic(plot)  # run the function that base64 encodes the graph
-  htmp <- paste0("<table align='",align,"' border=0 width=800><tr><td align='center'><p style='font-family:arial; font-size:",titlefontsize,"px'><b>&nbsp;&nbsp;&nbsp;",chart_title,"</b></p></td></tr><tr><td align='center'>",hg,"</td></tr></table><br>\n")
+  htmp <- paste0("<table align='",align,"' border=0 width=800 cellpadding=",.cellpadding,"><tr><td align='center'><p style='font-family:arial; font-size:",titlefontsize,"px'><b>&nbsp;&nbsp;&nbsp;",chart_title,"</b></p></td></tr><tr><td align='center'>",hg,"</td></tr></table><br>\n")
   .wcontent <<- c(.wcontent,htmp)
 }
 
@@ -309,7 +315,7 @@ wzy.COLUMNCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","
   
   if (fullstacked==TRUE) {
     htmp <- paste0(htmp,"isStacked: 'percent',\n")
-  } ifelse (stacked==TRUE) {
+  } else if (stacked==TRUE) {
     htmp <- paste0(htmp,"isStacked: true,\n")
   } else {
     htmp <- htmp
@@ -329,7 +335,7 @@ wzy.COLUMNCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","
   htmp <- paste0(htmp, "}\n\n") # closing function...
   
   .wjavafuns <<- c(.wjavafuns,htmp)
-  .wcontent <<- c(.wcontent,paste0("<table align='",align,"'><tr><td><div id='barchart_values",tilfstr,"'></div></td></tr></table>\n"))
+  .wcontent <<- c(.wcontent,paste0("<table align='",align,"' cellpadding=",.cellpadding,"><tr><td><div id='barchart_values",tilfstr,"'></div></td></tr></table>\n"))
 }
 
 # insert.SCATTERPLOT ####
@@ -382,7 +388,7 @@ wzy.SCATTERPLOT.insert <- function(df, x, y,
   htmp <- paste0(htmp, "}\n\n") # closing function...
   
   .wjavafuns <<- c(.wjavafuns,htmp)
-  .wcontent <<- c(.wcontent,paste0("<table align='",align,"'><tr><td><div id='scatterplot_values",tilfstr,"'></div></td></tr></table><br>\n"))
+  .wcontent <<- c(.wcontent,paste0("<table align='",align,"' cellpadding=",.cellpadding,"><tr><td><div id='scatterplot_values",tilfstr,"'></div></td></tr></table><br>\n"))
 }
 
 # insert.BUBBLECHART ####
@@ -462,7 +468,7 @@ wzy.BUBBLECHART.insert <- function(df,
   htmp <- paste0(htmp, "}\n\n") # closing function...
   
   .wjavafuns <<- c(.wjavafuns,htmp)
-  .wcontent <<- c(.wcontent,paste0("<table align='",align,"'><tr><td><div id='scatterplot_values",tilfstr,"'></div></td></tr></table><br>\n"))
+  .wcontent <<- c(.wcontent,paste0("<table align='",align,"' cellpadding=",.cellpadding,"><tr><td><div id='scatterplot_values",tilfstr,"'></div></td></tr></table><br>\n"))
 }
 
 
@@ -520,7 +526,7 @@ wzy.PIECHART.insert <- function(df, group_var, num_var, fun=c("asis","sum","mean
   htmp <- paste0(htmp, "}\n\n") # closing function...
   
   .wjavafuns <<- c(.wjavafuns,htmp)
-  .wcontent <<- c(.wcontent,paste0("<table align='",align,"'><tr><td><div id='piechart_values",tilfstr,"'></div></td></tr></table>\n"))
+  .wcontent <<- c(.wcontent,paste0("<table align='",align,"' cellpadding=",.cellpadding,"><tr><td><div id='piechart_values",tilfstr,"'></div></td></tr></table>\n"))
 }
 
 # insert.LINECHART ####
@@ -607,7 +613,93 @@ wzy.LINECHART.insert <- function(df, x=NULL, num_vars, fun=c("asis","sum","mean"
   htmp <- paste0(htmp, "}\n\n") # closing function...
   
   .wjavafuns <<- c(.wjavafuns,htmp)
-  .wcontent <<- c(.wcontent,paste0("<table align='",align,"' ><tr><td><div id='linechart_values",tilfstr,"'></div></td></tr></table>\n"))
+  .wcontent <<- c(.wcontent,paste0("<table align='",align,"' cellpadding=",.cellpadding,"><tr><td><div id='linechart_values",tilfstr,"'></div></td></tr></table>\n"))
+}
+
+# insert.AREACHART ####
+wzy.AREACHART.insert <- function(df, x=NULL, num_vars, fun=c("asis","sum","mean","median","sd"),
+                                 stacked = FALSE,
+                                 fullstacked = FALSE,
+                                 smooth=FALSE,
+                                 annotation_var = NULL,
+                                 chart_title=NULL,
+                                 titlefontsize=18,
+                                 #subtitle = NULL,
+                                 legendposition = c("right"),
+                                 align="left", width="700", height="600") {
+  library(dplyr)
+  
+  tilfstr <- as.character(floor(runif(1)*1000))
+  fun <- fun[1]
+  
+  if (length(num_vars)>1 & !is.null(annotation_var)) {
+    annotation_var <- NULL
+    print("Unfortunately annotation only works with one numerical value.")
+  }
+  
+  if (is.null(x)) {
+    x <- "row"
+    df[,x] <- seq(1:nrow(df))
+    fun <- "asis"
+  }
+  
+  # prepping data
+  if (fun=="asis") {
+    df2 <- df
+  } else {
+    df2 <- df %>% group_by(.data[[x]]) %>% summarise_at(.vars=num_vars,.funs=fun)
+    df2 <- df2[order(df2[,x]),]
+  }
+  
+  htmp <- paste0("\ngoogle.charts.load('current', {'packages':['corechart','line']}); \n")
+  htmp <- paste0(htmp,"google.charts.setOnLoadCallback(drawChart",tilfstr,"); \n")
+  
+  htmp <- paste0(htmp, "function drawChart",tilfstr,"() {\n")
+  htmp <- paste0(htmp,"var data = google.visualization.arrayToDataTable([ \n")
+  
+  # column names 
+  htmp <- paste0(htmp, paste0("['",x,"','",paste(num_vars,collapse="','"),"'",ifelse(!is.null(annotation_var),", { role: 'annotation' }",""),"],\n"))
+  
+  # data values
+  df2 <- data.frame(df2)
+  for (i in 1:nrow(df2)) {
+    insx <- ifelse(is.factor(df2[,x]), paste("'",as.character(df2[i,x]),"'"),
+                   ifelse(is.numeric(df2[,x]), paste(as.character(df2[i,x])), paste("'",as.character(df2[i,x]),"'")))
+    
+    htmp <- paste0(htmp, paste0("[",insx,",",as.character(paste(df2[i,num_vars],collapse=",")),
+                                ifelse(!is.null(annotation_var),paste0(",'",as.character(df2[i,annotation_var]),"'"),""),"]",ifelse(i==nrow(df2),"",","),"\n"))
+  }
+  
+  htmp <- paste0(htmp,"]);\n\n") 
+  
+  htmp <- paste0(htmp,"var options = {\n")
+  htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Line chart of ",paste(num_vars, collapse=" and ")," - by ",x)),"',\n"))
+  htmp <- paste0(htmp,"width: ",width,",\n")
+  htmp <- paste0(htmp,"height: ",height,",\n")
+  
+  if (fullstacked==TRUE) {
+    htmp <- paste0(htmp,"isStacked: 'percent',\n")
+  } else if (stacked==TRUE) {
+    htmp <- paste0(htmp,"isStacked: true,\n")
+  } else {
+    htmp <- htmp
+  }
+  
+  htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
+  if (smooth==TRUE) {htmp <- paste0(htmp,"curveType: 'function',\n")}
+  htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
+  htmp <- paste0(htmp,"vAxis: {title: '",gsub("asis ","",paste(fun,num_vars[1])),ifelse(stacked==TRUE || fullstacked==TRUE," (stacked)",""),"'},\n")
+  htmp <- paste0(htmp,"hAxis: {title: '",x,"'},\n")
+  
+  #htmp <- paste0(htmp,"bar: {groupWidth: '95%'},\n")
+  htmp <- paste0(htmp,"legend: { position: '",legendposition,"' },\n")
+  htmp <- paste0(htmp,"};\n\n")
+  htmp <- paste0(htmp, "var chart = new google.visualization.AreaChart(document.getElementById('linechart_values",tilfstr,"'));\n")
+  htmp <- paste0(htmp,"chart.draw(data, options);\n")
+  htmp <- paste0(htmp, "}\n\n") # closing function...
+  
+  .wjavafuns <<- c(.wjavafuns,htmp)
+  .wcontent <<- c(.wcontent,paste0("<table align='",align,"' cellpadding=",.cellpadding,"><tr><td><div id='linechart_values",tilfstr,"'></div></td></tr></table>\n"))
 }
 
 
