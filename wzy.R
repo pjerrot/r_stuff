@@ -2,6 +2,8 @@
 wzy.init <- function(title="output", file="output.html", author="", 
                      leftmargin = 70,
                      cellpadding = 7,
+                     width = 900,
+                     sidepanelscolor="grey",
                      includecontentblock=TRUE, pdfcopy=FALSE) {
   .wjavafuns <<- c()
   .wcontent <<- c()
@@ -13,6 +15,8 @@ wzy.init <- function(title="output", file="output.html", author="",
   .cellpadding <<- cellpadding
   .includecontentblock <<- includecontentblock
   .pdfcopy <<- pdfcopy
+  .width <<- width
+  .sidepanelscolor <<- sidepanelscolor
 }
 
 .replace_ae_oe_aa <- function(str) {
@@ -55,15 +59,6 @@ wzy.LINEBREAK.insert <- function(count=1) {
 wzy.HTML.insert <- function(str) {.wcontent <<- c(.wcontent,str)}
 
 # insert.TEXT ####
-mwzy.TEXT.insert <- function(str, fontsize=14, fontface="Arial", 
-                              align="left", 
-                              boxwidth=850,
-                              leftmargin = .leftmargin,
-                              cellpadding=10) {
-  htmp <- paste0("<table align='",align,"' width=",boxwidth," cellpadding=",.cellpadding,"><tr><td width=",.leftmargin,"></td><td><a style='font-family:",fontface,"; font-size:",fontsize,"'>",str,"</a></td></tr></table>")
-  .wcontent <<- c(.wcontent,htmp)
-}
-
 wzy.TEXT.insert <- function(str, fontsize=14, fontface="Arial", 
                             align="left", 
                             boxwidth=850,
@@ -156,8 +151,8 @@ wzy.wrapup <- function() {
   
   #  }
   
-  html <- paste(html,"<body style='background-color:grey;'>\n")
-  html <- paste(html,"<table ><tr><td width='17%' bgcolor=grey></td><td width='900' bgcolor='white'>\n")
+  html <- paste(html,"<body style='background-color:",.sidepanelscolor,";'>\n")
+  html <- paste(html,"<table ><tr><td width='17%' bgcolor=",.sidepanelscolor,"></td><td width=",.width," bgcolor='white'>\n")
   
   html0 <- ""
   if (length(.wcontent)>0) {
@@ -194,7 +189,7 @@ wzy.wrapup <- function() {
   
   html <- paste(html,html0)
   
-  html <- paste(html,"\n</td><td bgcolor='grey'></td></tr>\n</table>\n</body>\n")
+  html <- paste(html,"\n</td><td bgcolor='",.sidepanelscolor,"'></td></tr>\n</table>\n</body>\n")
   html <- paste(html,"</html>")
   
   html <- .replace_ae_oe_aa(html)
