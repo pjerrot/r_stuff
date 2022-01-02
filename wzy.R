@@ -15,6 +15,16 @@ wzy.init <- function(title="output", file="output.html", author="",
   .pdfcopy <<- pdfcopy
 }
 
+.replace_ae_oe_aa <- function(str) {
+  str <- gsub("æ","&aelig;",str)
+  str <- gsub("ø","&oslash;",str)
+  str <- gsub("å","&aring;",str)
+  str <- gsub("Æ","&AElig;",str)
+  str <- gsub("Ø","&Oslash;",str)
+  str <- gsub("Å","&Aring;",str)
+  return(str)
+}
+
 # insert.TITLE ####
 wzy.TITLE.insert <- function(str, size=c("h3","h1","h2","h4","h5","h6"), small=FALSE, link=NULL, align="left", color="black") {
   size <- size[1]
@@ -45,12 +55,21 @@ wzy.LINEBREAK.insert <- function(count=1) {
 wzy.HTML.insert <- function(str) {.wcontent <<- c(.wcontent,str)}
 
 # insert.TEXT ####
-wzy.TEXT.insert <- function(str, fontsize=14, fontface="Arial", 
+mwzy.TEXT.insert <- function(str, fontsize=14, fontface="Arial", 
                               align="left", 
                               boxwidth=850,
                               leftmargin = .leftmargin,
                               cellpadding=10) {
   htmp <- paste0("<table align='",align,"' width=",boxwidth," cellpadding=",.cellpadding,"><tr><td width=",.leftmargin,"></td><td><a style='font-family:",fontface,"; font-size:",fontsize,"'>",str,"</a></td></tr></table>")
+  .wcontent <<- c(.wcontent,htmp)
+}
+
+wzy.TEXT.insert <- function(str, fontsize=14, fontface="Arial", 
+                            align="left", 
+                            boxwidth=850,
+                            leftmargin = .leftmargin,
+                            cellpadding=10) {
+  htmp <- paste0("<table align='",align,"' width=",boxwidth," cellpadding=",.cellpadding,"><tr><td width=",.leftmargin,"></td><td style='font-family:",fontface,"; font-size:",fontsize,"'>",str,"</td></tr></table>")
   .wcontent <<- c(.wcontent,htmp)
 }
 
@@ -177,6 +196,8 @@ wzy.wrapup <- function() {
   
   html <- paste(html,"\n</td><td bgcolor='grey'></td></tr>\n</table>\n</body>\n")
   html <- paste(html,"</html>")
+  
+  html <- .replace_ae_oe_aa(html)
   
   write.table(html,.wfile,row.names=FALSE,col.names=FALSE,quote=FALSE)   
   print(paste0("Your HTML file has been saved as: ",.wfile))
