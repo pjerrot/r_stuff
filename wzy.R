@@ -489,24 +489,37 @@ wzy.BUBBLECHART.insert <- function(df,
 
 
 # insert.PIECHART ####
-wzy.PIECHART.insert <- function(df, group_var, num_var, fun=c("asis","sum","mean","median","sd"), 
-                                  is3D = TRUE,
-                                  annotation_var = NULL,
-                                  chart_title=NULL,
-                                  titlefontsize=18,
-                                  #subtitle = NULL,
-                                  legendposition = c("right"),
-                                  align="left", width="700", height="600") {
+wzy.PIECHART.insert <- function(df, group_var, num_var=NULL, fun=c("asis","n","sum","mean","median","sd"), 
+                                is3D = FALSE,
+                                show_n_grps = 10,
+                                annotation_var = NULL,
+                                chart_title=NULL,
+                                titlefontsize=18,
+                                #subtitle = NULL,
+                                legendposition = c("right"),
+                                align="left", width=700, height=600) {
   library(dplyr)
   
   tilfstr <- as.character(floor(runif(1)*1000))
   fun <- fun[1]
   
   # prepping data
-  if (fun=="asis") {
-    df2 <- df
+  if (!is.null(num_var)) {
+    if (fun=="asis") {
+      df2 <- df
+    } else {
+      df2 <- df %>% group_by(.data[[group_var]]) %>% summarise_at(.vars=num_var,.funs=fun)
+      
+      df2 <- df2[order(-df2[,num_var]),]
+      if (nrow(df2)>show_n_grps) df2[(show_n_grps+1):nrow(df2),group_var] <- "Other"
+      df2 <- df2 %>% group_by(.data[[group_var]]) %>% summarise_at(.vars=num_var,.funs=fun)
+    }
   } else {
-    df2 <- df %>% group_by(.data[[group_var]]) %>% summarise_at(.vars=num_var,.funs=fun)
+    num_var <- "n"
+    df2 <- df %>% group_by(.data[[group_var]]) %>% summarise(n=n())
+    df2 <- df2[order(-df2[,num_var]),]
+    if (nrow(df2)>show_n_grps) df2[(show_n_grps+1):nrow(df2),group_var] <- "Other"
+    df2 <- df2 %>% group_by(.data[[group_var]]) %>% summarise(n=sum(n))
   }
   
   htmp <- paste0("\ngoogle.charts.load('current', {'packages':['corechart','bar']}); \n")
@@ -530,9 +543,9 @@ wzy.PIECHART.insert <- function(df, group_var, num_var, fun=c("asis","sum","mean
   htmp <- paste0(htmp,"var options = {\n")
   htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Pie chart: ",ifelse(!fun=="asis",paste0("(",fun," of) "), ""), num_var," - by ",group_var)),"',\n"))
   htmp <- paste0(htmp,"is3D: ",tolower(is3D),",\n")
-  htmp <- paste0(htmp,"width: ",width,",\n")
-  htmp <- paste0(htmp,"height: ",height,",\n")
-  htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
+  #  htmp <- paste0(htmp,"width: ",width,",\n")
+  #  htmp <- paste0(htmp,"height: ",height,",\n")
+  #htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
   #  htmp <- paste0(htmp,"legend: { position: '",legendposition,"' },\n")
   htmp <- paste0(htmp,"};\n\n")
@@ -542,20 +555,20 @@ wzy.PIECHART.insert <- function(df, group_var, num_var, fun=c("asis","sum","mean
   htmp <- paste0(htmp, "}\n\n") # closing function...
   
   .wjavafuns <<- c(.wjavafuns,htmp)
-  .wcontent <<- c(.wcontent,paste0("<table align='",align,"' cellpadding=",.cellpadding,"><tr><td><div id='piechart_values",tilfstr,"'></div></td></tr></table>\n"))
+  .wcontent <<- c(.wcontent,paste0("<table border = 1 align='",align,"' cellpadding=",.cellpadding,"><tr><td><div id='piechart_values",tilfstr,"' style='width: ",width,"px; height: ",height,"px;'></div></td></tr></table>\n"))
 }
 
 # insert.LINECHART ####
-wzy.LINECHART.insert <- function(df, x=NULL, num_vars, fun=c("asis","sum","mean","median","sd"),
-                                   smooth=FALSE,
-                                   trendline = FALSE,
-                                   trendlinefunction = c("linear","exponential"),
-                                   annotation_var = NULL,
-                                   chart_title=NULL,
-                                   titlefontsize=18,
-                                   #subtitle = NULL,
-                                   legendposition = c("right"),
-                                   align="left", width="700", height="600") {
+wzy.LINECHART.insert <- function(df, x=NULL, num_vars=NULL, fun=c("asis","n","acc_n","sum","mean","median","sd"),
+                                 smooth=FALSE,
+                                 trendline = FALSE,
+                                 trendlinefunction = c("linear","exponential"),
+                                 annotation_var = NULL,
+                                 chart_title=NULL,
+                                 titlefontsize=18,
+                                 #subtitle = NULL,
+                                 legendposition = c("right"),
+                                 align="left", width="700", height="600") {
   library(dplyr)
   
   tilfstr <- as.character(floor(runif(1)*1000))
@@ -578,11 +591,24 @@ wzy.LINECHART.insert <- function(df, x=NULL, num_vars, fun=c("asis","sum","mean"
   }
   
   # prepping data
-  if (fun=="asis") {
-    df2 <- df
+  if (!is.null(num_vars)) {
+    if (fun=="asis") {
+      df2 <- df
+    } else {
+      df2 <- df %>% group_by(.data[[x]]) %>% summarise_at(.vars=num_vars,.funs=fun)
+      df2 <- df2[order(df2[,x]),]
+    }
   } else {
-    df2 <- df %>% group_by(.data[[x]]) %>% summarise_at(.vars=num_vars,.funs=fun)
-    df2 <- df2[order(df2[,x]),]
+    if (fun=="n") {
+      num_vars <- "n"
+      df2 <- df %>% group_by(.data[[x]]) %>% summarise(n=n())
+      df2 <- df2[order(df2[,x]),]
+    } else if (fun=="acc_n") {
+      num_vars <- "acc_n"
+      df2 <- df %>% group_by(.data[[x]]) %>% summarise(n=n())
+      df2$acc_n <- cumsum(df2$n)
+      df2 <- df2[order(df2[,x]),]
+    }
   }
   
   htmp <- paste0("\ngoogle.charts.load('current', {'packages':['corechart','line']}); \n")
