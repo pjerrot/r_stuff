@@ -36,7 +36,7 @@ wzy.TITLE.insert <- function(str, size=c("h3","h1","h2","h4","h5","h6"), small=F
   contentblock_str <- paste0("<a href='#",a_name,"'>",str,"</a>")
   .wcontentblock <<- c(.wcontentblock,contentblock_str)
   
-  tmp <- paste0("<table width='100%' cellpadding=",.cellpadding," align=",align,"><tr><td width=",.leftmargin,"></td><td>")
+  tmp <- paste0("<table width='100%' cellpadding=",.cellpadding,"><tr><td width=",.leftmargin,"></td><td align=",align,">")
   if (is.null(link)) {
     .wcontent <<- c(.wcontent,paste0(tmp,"<",size,">",ifelse(small==TRUE,"<small>",""),"<a name='",a_name,"'><font color='",color,"'>",str,"</font></a>",ifelse(small==TRUE,"</small>",""),"</",size,"></td></tr></table>\n"))
   } else {
@@ -213,7 +213,7 @@ wzy.BARCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","mea
                                   titlefontsize=18,
                                   #subtitle = NULL,
                                   legendposition = c("right"),
-                                  align="center", width="700", height="600") {
+                                  align="center", width="600", height="600") {
   library(dplyr)
   
   tilfstr <- as.character(floor(runif(1)*1000))
@@ -248,12 +248,13 @@ wzy.BARCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","mea
   htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Bar chart of ",paste(num_vars, collapse=" and ")," - by ",group_var)),"',\n"))
   htmp <- paste0(htmp,"width: ",width,",\n")
   htmp <- paste0(htmp,"height: ",height,",\n")
-  htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
+  #htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
   if (length(num_vars)==1) {htmp <- paste0(htmp,"hAxis: {title: '",gsub("asis ","",paste(fun,num_vars[1])),"'},\n")}
   htmp <- paste0(htmp,"vAxis: {title: '",group_var,"'},\n")
   htmp <- paste0(htmp,"bar: {groupWidth: '95%'},\n")
   htmp <- paste0(htmp,"legend: { position: '",legendposition,"' },\n")
+  htmp <- paste0(htmp,"chartArea: {backgroundColor: {stroke: '#4322c0',strokeWidth: 1}},\n")
   htmp <- paste0(htmp,"};\n\n")
   
   htmp <- paste0(htmp, "var chart = new google.visualization.BarChart(document.getElementById('barchart_values",tilfstr,"'));\n")
@@ -328,7 +329,7 @@ wzy.COLUMNCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","
   htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Column chart of ",paste(num_vars, collapse=" and ")," - by ",group_var)),"',\n"))
   htmp <- paste0(htmp,"width: ",width,",\n")
   htmp <- paste0(htmp,"height: ",height,",\n")
-  
+  htmp <- paste0(htmp,"chartArea: {backgroundColor: {stroke: '#4322c0',strokeWidth: 1}},\n")
   if (fullstacked==TRUE) {
     htmp <- paste0(htmp,"isStacked: 'percent',\n")
   } else if (stacked==TRUE) {
@@ -338,7 +339,7 @@ wzy.COLUMNCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","
   }
   
 #  if (fullstacked==TRUE) htmp <- paste0(htmp,"options_fullStacked = {isStacked: 'percent'},\n")
-  htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
+  #htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
   if (length(num_vars)==1) {htmp <- paste0(htmp,"vAxis: {title: '",gsub("asis ","",paste(fun,num_vars[1])),"'},\n")}
   htmp <- paste0(htmp,"hAxis: {title: '",group_var,"'},\n")
@@ -391,7 +392,8 @@ wzy.SCATTERPLOT.insert <- function(df, x, y,
   htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Scatter chart of ",x, " vs. ",y,"',\n"))))
   htmp <- paste0(htmp,"width: ",width,",\n")
   htmp <- paste0(htmp,"height: ",height,",\n")
-  htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
+  #htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
+  htmp <- paste0(htmp,"chartArea: {backgroundColor: {stroke: '#4322c0',strokeWidth: 1}},\n")
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
   htmp <- paste0(htmp,"vAxis: {title: '",y,"', minValue: ",min(df[,y]) - (max(df[,y]) - min(df[,y]))*0.1,", maxValue: ",max(df[,y]) + (max(df[,y]) - min(df[,y]))*0.1,"}, \n")
   htmp <- paste0(htmp,"hAxis: {title: '",x,"', minValue: ",min(df[,x]) - (max(df[,x]) - min(df[,x]))*0.1,", maxValue: ",max(df[,x]) + (max(df[,x]) - min(df[,x]))*0.1,"}, \n")
@@ -464,7 +466,8 @@ wzy.BUBBLECHART.insert <- function(df,
   htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Bubble chart of ",x, " vs. ",y,"',\n"))))
   htmp <- paste0(htmp,"width: ",width,",\n")
   htmp <- paste0(htmp,"height: ",height,",\n")
-  htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
+  #htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
+  #htmp <- paste0(htmp,"chartArea: {backgroundColor: {stroke: '#4322c0',strokeWidth: 1}},\n")
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
   htmp <- paste0(htmp,"vAxis: {title: '",y,"', minValue: ",min(df[,y]) - (max(df[,y]) - min(df[,y]))*0.1,", maxValue: ",max(df[,y]) + (max(df[,y]) - min(df[,y]))*0.1,"}, \n")
   htmp <- paste0(htmp,"hAxis: {title: '",x,"', minValue: ",min(df[,x]) - (max(df[,x]) - min(df[,x]))*0.1,", maxValue: ",max(df[,x]) + (max(df[,x]) - min(df[,x]))*0.1,"}, \n")
@@ -491,12 +494,12 @@ wzy.BUBBLECHART.insert <- function(df,
 # insert.PIECHART ####
 wzy.PIECHART.insert <- function(df, group_var, num_var=NULL, fun=c("asis","n","sum","mean","median","sd"), 
                                 is3D = FALSE,
-                                show_n_grps = 10,
                                 annotation_var = NULL,
                                 chart_title=NULL,
                                 titlefontsize=18,
                                 #subtitle = NULL,
                                 legendposition = c("right"),
+                                sliceVisibilityThreshold = 0.2,
                                 align="left", width=700, height=600) {
   library(dplyr)
   
@@ -509,17 +512,10 @@ wzy.PIECHART.insert <- function(df, group_var, num_var=NULL, fun=c("asis","n","s
       df2 <- df
     } else {
       df2 <- df %>% group_by(.data[[group_var]]) %>% summarise_at(.vars=num_var,.funs=fun)
-      
-      df2 <- df2[order(-df2[,num_var]),]
-      if (nrow(df2)>show_n_grps) df2[(show_n_grps+1):nrow(df2),group_var] <- "Other"
-      df2 <- df2 %>% group_by(.data[[group_var]]) %>% summarise_at(.vars=num_var,.funs=fun)
     }
   } else {
     num_var <- "n"
     df2 <- df %>% group_by(.data[[group_var]]) %>% summarise(n=n())
-    df2 <- df2[order(-df2[,num_var]),]
-    if (nrow(df2)>show_n_grps) df2[(show_n_grps+1):nrow(df2),group_var] <- "Other"
-    df2 <- df2 %>% group_by(.data[[group_var]]) %>% summarise(n=sum(n))
   }
   
   htmp <- paste0("\ngoogle.charts.load('current', {'packages':['corechart','bar']}); \n")
@@ -543,10 +539,13 @@ wzy.PIECHART.insert <- function(df, group_var, num_var=NULL, fun=c("asis","n","s
   htmp <- paste0(htmp,"var options = {\n")
   htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Pie chart: ",ifelse(!fun=="asis",paste0("(",fun," of) "), ""), num_var," - by ",group_var)),"',\n"))
   htmp <- paste0(htmp,"is3D: ",tolower(is3D),",\n")
-  #  htmp <- paste0(htmp,"width: ",width,",\n")
+  htmp <- paste0(htmp,"chartArea: {backgroundColor: {stroke: '#4322c0',strokeWidth: 1}},\n")
   #  htmp <- paste0(htmp,"height: ",height,",\n")
   #htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
+  htmp <- paste0(htmp,"sliceVisibilityThreshold: ",sliceVisibilityThreshold,",\n")
+  htmp <- paste0(htmp,"chartArea:{left:0,top:70,width:'100%',height:'100%'},\n")
+  
   #  htmp <- paste0(htmp,"legend: { position: '",legendposition,"' },\n")
   htmp <- paste0(htmp,"};\n\n")
   
@@ -555,14 +554,183 @@ wzy.PIECHART.insert <- function(df, group_var, num_var=NULL, fun=c("asis","n","s
   htmp <- paste0(htmp, "}\n\n") # closing function...
   
   .wjavafuns <<- c(.wjavafuns,htmp)
-  .wcontent <<- c(.wcontent,paste0("<table border = 1 align='",align,"' cellpadding=",.cellpadding,"><tr><td><div id='piechart_values",tilfstr,"' style='width: ",width,"px; height: ",height,"px;'></div></td></tr></table>\n"))
+  .wcontent <<- c(.wcontent,paste0("<table border = 0 align='",align,"' cellpadding=",.cellpadding,"><tr><td><div id='piechart_values",tilfstr,"' style='width: ",width,"px; height: ",height,"px;'></div></td></tr></table>\n"))
 }
 
+
 # insert.LINECHART ####
-wzy.LINECHART.insert <- function(df, x=NULL, num_vars=NULL, fun=c("asis","n","acc_n","sum","mean","median","sd"),
+wzy.LINECHART.insert <- function(df, x=NULL, 
+                                 num_vars=NULL, 
+                                 group_var=NULL, 
+                                 fun=c("asis","n","acc_n","sum","mean","median","sd"),
                                  smooth=FALSE,
                                  trendline = FALSE,
                                  trendlinefunction = c("linear","exponential"),
+                                 annotation_var = NULL,
+                                 chart_title=NULL,
+                                 titlefontsize=18,
+                                 #subtitle = NULL,
+                                 legendposition = c("right"),
+                                 align="left", width="700", height="600") {
+  library(dplyr)
+  library(reshape2)
+  
+  tilfstr <- as.character(floor(runif(1)*1000))
+  fun <- fun[1]
+  
+  if (length(num_vars)>1 & !is.null(annotation_var)) {
+    annotation_var <- NULL
+    print("Unfortunately annotation only works with one numerical value.")
+  }
+  
+  if (trendline==TRUE & is.character(df[,x])) {
+    trendline <- FALSE
+    print("Unfortunately trendlines only works with one numerical x variable.")
+  }
+  
+  if (is.null(x)) {
+    x <- "row"
+    df[,x] <- seq(1:nrow(df))
+    fun <- "asis"
+  }
+  
+  # prepping data
+  if (is.null(group_var)) {
+    if (!is.null(num_vars)) {
+      if (fun=="asis") {
+        df2 <- df
+      } else {
+        if (fun=="n") {
+          num_vars <- "n"
+          df2 <- df %>% group_by(.data[[x]]) %>% summarise(n=n())
+        } else if (fun=="acc_n") {
+          1=1
+        } else {
+          df2 <- df %>% group_by(.data[[x]]) %>% summarise_at(.vars=num_vars,.funs=fun)
+        }
+        df2 <- df2[order(df2[,x]),]
+      }
+    } else {
+      if (fun=="sum") {
+        #num_vars <- "n"
+        df2 <- df %>% group_by(.data[[x]]) %>% summarise_at(.vars=num_vars,.funs="sum")
+        df2 <- df2[order(df2[,x]),]
+      } else if (fun=="acc_n") {
+        num_vars <- "acc_n"
+        df2 <- df %>% group_by(.data[[x]]) %>% summarise_at(.vars=num_vars,.funs="cumsum")
+        df2$acc_n <- cumsum(df2$n)
+        df2 <- df2[order(df2[,x]),]
+      }
+    }
+  } else {
+    if (!is.null(num_vars)) {
+      if (fun=="asis") {
+        df2 <- dcast(data=df,fun.aggregate=NULL, paste(x," ~ ",group_var),value.var=num_vars)
+        num_vars <- colnames(df2)[-1]
+        df2 <- df2[order(df2[,x]),]
+      } else {
+        fun <- "n"
+        num_vars <- "n"
+        df2 <- df %>% group_by(.data[[x]],.data[[group_var]]) %>% summarise(n=n())
+        df2 <- as.data.frame(df2)
+        df2 <- dcast(df2,as.formula(paste(x," ~ ",group_var)),value.var=num_vars)
+        colnames(df2)[-1] <- paste0("n_",colnames(df2)[-1])
+        df2[is.na(df2)] <- 0
+        num_vars <- colnames(df2)[-1]
+        df2 <- df2[order(df2[,x]),]
+      }
+    } else {
+      if (fun=="acc_n") {
+        num_vars <- "acc_n"
+        df2 <- df %>% group_by(.data[[x]],.data[[group_var]]) %>% summarise(n=n())
+        df2 <- df2 %>% group_by(.data[[group_var]]) %>% summarise(x=.data[[x]],n=n,acc_n=cumsum(n))
+        colnames(df2)[which(colnames(df2)=="x")] <- x
+        df2 <- dcast(df2,as.formula(paste(x," ~ ",group_var)),value.var="acc_n")
+        colnames(df2)[-1] <- paste0("acc_n_",colnames(df2)[-1])
+        for (col in 2:ncol(df2)) {
+          for (i in 1:nrow(df2)) {
+            if (i==1 & is.na(df2[i,col])) {
+              df2[i,col] <- 0
+            } else if (i>1 & is.na(df2[i,col])) {
+              df2[i,col] <- df2[i-1,col]
+            }
+          }
+        }
+        num_vars <- colnames(df2)[-1]
+        #df2 <- df2[order(df2[,x]),]
+      } else {
+        fun <- "n"
+        num_vars <- "n"
+        df2 <- df %>% group_by(.data[[x]],.data[[group_var]]) %>% summarise(n=n())
+        df2 <- as.data.frame(df2)
+        df2 <- dcast(df2,as.formula(paste(x," ~ ",group_var)),value.var=num_vars)
+        colnames(df2)[-1] <- paste0("n_",colnames(df2)[-1])
+        colnames(df2) <- gsub("/","_",colnames(df2),fixed=TRUE)
+        df2[is.na(df2)] <- 0
+        num_vars <- colnames(df2)[-1]
+        df2 <- df2[order(df2[,x]),]
+      }
+    }
+  }
+  num_vars <- num_vars[num_vars %in% colnames(df2)]
+  num_vars <- num_vars[!num_vars %in% c("NA")]
+  
+  
+  htmp <- paste0("\ngoogle.charts.load('current', {'packages':['corechart','line']}); \n")
+  htmp <- paste0(htmp,"google.charts.setOnLoadCallback(drawChart",tilfstr,"); \n")
+  
+  htmp <- paste0(htmp, "function drawChart",tilfstr,"() {\n")
+  htmp <- paste0(htmp,"var data = google.visualization.arrayToDataTable([ \n")
+  
+  # column names 
+  htmp <- paste0(htmp, paste0("['",x,"','",paste(num_vars,collapse="','"),"'",ifelse(!is.null(annotation_var),", { role: 'annotation' }",""),"],\n"))
+  
+  # data values
+  df2 <- data.frame(df2)
+  for (i in 1:nrow(df2)) {
+    insx <- ifelse(is.factor(df2[,x]), paste0("'",as.character(df2[i,x]),"'"),
+                   ifelse(is.numeric(df2[,x]), paste0(as.character(df2[i,x])), paste0("'",as.character(df2[i,x]),"'")))
+    
+    htmp <- paste0(htmp, paste0("[",insx,",",as.character(paste(df2[i,num_vars],collapse=",")),
+                                ifelse(!is.null(annotation_var),paste0(",'",as.character(df2[i,annotation_var]),"'"),""),"]",ifelse(i==nrow(df2),"",","),"\n"))
+  }
+  
+  htmp <- paste0(htmp,"]);\n\n") 
+  
+  htmp <- paste0(htmp,"var options = {\n")
+  htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Line chart of ",paste(num_vars, collapse=" and ")," - by ",x)),"',\n"))
+  htmp <- paste0(htmp,"width: ",width,",\n")
+  htmp <- paste0(htmp,"height: ",height,",\n")
+  #htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
+  if (smooth==TRUE) {htmp <- paste0(htmp,"curveType: 'function',\n")}
+  htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
+  if (length(num_vars)==1) {htmp <- paste0(htmp,"vAxis: {title: '",gsub("asis ","",paste(fun,num_vars[1])),"'},\n")}
+  htmp <- paste0(htmp,"hAxis: {title: '",x,"'},\n")
+  
+  htmp <- paste0(htmp,"chartArea: {backgroundColor: {stroke: '#4322c0',strokeWidth: 1}},\n")
+  
+  if (trendline==TRUE) {
+    htmp <- paste0(htmp,"trendlines: {\n")
+    htmp <- paste0(htmp,"  0: {type: '",trendlinefunction[1],"', color: '#333', opacity: 1},\n")
+    #htmp <- paste0(htmp,"  1: {type: 'linear', color: '#111', opacity: .3} \n")
+    htmp <- paste0(htmp,"} ,\n")
+  }
+  #htmp <- paste0(htmp,"bar: {groupWidth: '95%'},\n")
+  htmp <- paste0(htmp,"legend: { position: '",legendposition,"' },\n")
+  htmp <- paste0(htmp,"};\n\n")
+  htmp <- paste0(htmp, "var chart = new google.visualization.LineChart(document.getElementById('linechart_values",tilfstr,"'));\n")
+  htmp <- paste0(htmp,"chart.draw(data, options);\n")
+  htmp <- paste0(htmp, "}\n\n") # closing function...
+  
+  .wjavafuns <<- c(.wjavafuns,htmp)
+  .wcontent <<- c(.wcontent,paste0("<table align='",align,"' cellpadding=",.cellpadding,"><tr><td><div id='linechart_values",tilfstr,"'></div></td></tr></table>\n"))
+}
+
+# insert.AREACHART ####
+wzy.AREACHART.insert <- function(df, x=NULL, num_vars, fun=c("asis","n","acc_n","sum","mean","median","sd"),
+                                 stacked = FALSE,
+                                 fullstacked = FALSE,
+                                 smooth=FALSE,
                                  annotation_var = NULL,
                                  chart_title=NULL,
                                  titlefontsize=18,
@@ -577,11 +745,6 @@ wzy.LINECHART.insert <- function(df, x=NULL, num_vars=NULL, fun=c("asis","n","ac
   if (length(num_vars)>1 & !is.null(annotation_var)) {
     annotation_var <- NULL
     print("Unfortunately annotation only works with one numerical value.")
-  }
-  
-  if (trendline==TRUE & is.character(df[,x])) {
-    trendline <- FALSE
-    print("Unfortunately trendlines only works with one numerical x variable.")
   }
   
   if (is.null(x)) {
@@ -623,8 +786,8 @@ wzy.LINECHART.insert <- function(df, x=NULL, num_vars=NULL, fun=c("asis","n","ac
   # data values
   df2 <- data.frame(df2)
   for (i in 1:nrow(df2)) {
-    insx <- ifelse(is.factor(df2[,x]), paste("'",as.character(df2[i,x]),"'"),
-                   ifelse(is.numeric(df2[,x]), paste(as.character(df2[i,x])), paste("'",as.character(df2[i,x]),"'")))
+    insx <- ifelse(is.factor(df2[,x]), paste0("'",as.character(df2[i,x]),"'"),
+                   ifelse(is.numeric(df2[,x]), paste0(as.character(df2[i,x])), paste0("'",as.character(df2[i,x]),"'")))
     
     htmp <- paste0(htmp, paste0("[",insx,",",as.character(paste(df2[i,num_vars],collapse=",")),
                                 ifelse(!is.null(annotation_var),paste0(",'",as.character(df2[i,annotation_var]),"'"),""),"]",ifelse(i==nrow(df2),"",","),"\n"))
@@ -636,88 +799,7 @@ wzy.LINECHART.insert <- function(df, x=NULL, num_vars=NULL, fun=c("asis","n","ac
   htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Line chart of ",paste(num_vars, collapse=" and ")," - by ",x)),"',\n"))
   htmp <- paste0(htmp,"width: ",width,",\n")
   htmp <- paste0(htmp,"height: ",height,",\n")
-  htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
-  if (smooth==TRUE) {htmp <- paste0(htmp,"curveType: 'function',\n")}
-  htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
-  if (length(num_vars)==1) {htmp <- paste0(htmp,"vAxis: {title: '",gsub("asis ","",paste(fun,num_vars[1])),"'},\n")}
-  htmp <- paste0(htmp,"hAxis: {title: '",x,"'},\n")
-  if (trendline==TRUE) {
-    htmp <- paste0(htmp,"trendlines: {\n")
-    htmp <- paste0(htmp,"  0: {type: '",trendlinefunction[1],"', color: '#333', opacity: 1},\n")
-    #htmp <- paste0(htmp,"  1: {type: 'linear', color: '#111', opacity: .3} \n")
-    htmp <- paste0(htmp,"} ,\n")
-  }
-  #htmp <- paste0(htmp,"bar: {groupWidth: '95%'},\n")
-  htmp <- paste0(htmp,"legend: { position: '",legendposition,"' },\n")
-  htmp <- paste0(htmp,"};\n\n")
-  htmp <- paste0(htmp, "var chart = new google.visualization.LineChart(document.getElementById('linechart_values",tilfstr,"'));\n")
-  htmp <- paste0(htmp,"chart.draw(data, options);\n")
-  htmp <- paste0(htmp, "}\n\n") # closing function...
-  
-  .wjavafuns <<- c(.wjavafuns,htmp)
-  .wcontent <<- c(.wcontent,paste0("<table align='",align,"' cellpadding=",.cellpadding,"><tr><td><div id='linechart_values",tilfstr,"'></div></td></tr></table>\n"))
-}
-
-# insert.AREACHART ####
-wzy.AREACHART.insert <- function(df, x=NULL, num_vars, fun=c("asis","sum","mean","median","sd"),
-                                 stacked = FALSE,
-                                 fullstacked = FALSE,
-                                 smooth=FALSE,
-                                 annotation_var = NULL,
-                                 chart_title=NULL,
-                                 titlefontsize=18,
-                                 #subtitle = NULL,
-                                 legendposition = c("right"),
-                                 align="left", width="700", height="600") {
-  library(dplyr)
-  
-  tilfstr <- as.character(floor(runif(1)*1000))
-  fun <- fun[1]
-  
-  if (length(num_vars)>1 & !is.null(annotation_var)) {
-    annotation_var <- NULL
-    print("Unfortunately annotation only works with one numerical value.")
-  }
-  
-  if (is.null(x)) {
-    x <- "row"
-    df[,x] <- seq(1:nrow(df))
-    fun <- "asis"
-  }
-  
-  # prepping data
-  if (fun=="asis") {
-    df2 <- df
-  } else {
-    df2 <- df %>% group_by(.data[[x]]) %>% summarise_at(.vars=num_vars,.funs=fun)
-    df2 <- df2[order(df2[,x]),]
-  }
-  
-  htmp <- paste0("\ngoogle.charts.load('current', {'packages':['corechart','line']}); \n")
-  htmp <- paste0(htmp,"google.charts.setOnLoadCallback(drawChart",tilfstr,"); \n")
-  
-  htmp <- paste0(htmp, "function drawChart",tilfstr,"() {\n")
-  htmp <- paste0(htmp,"var data = google.visualization.arrayToDataTable([ \n")
-  
-  # column names 
-  htmp <- paste0(htmp, paste0("['",x,"','",paste(num_vars,collapse="','"),"'",ifelse(!is.null(annotation_var),", { role: 'annotation' }",""),"],\n"))
-  
-  # data values
-  df2 <- data.frame(df2)
-  for (i in 1:nrow(df2)) {
-    insx <- ifelse(is.factor(df2[,x]), paste("'",as.character(df2[i,x]),"'"),
-                   ifelse(is.numeric(df2[,x]), paste(as.character(df2[i,x])), paste("'",as.character(df2[i,x]),"'")))
-    
-    htmp <- paste0(htmp, paste0("[",insx,",",as.character(paste(df2[i,num_vars],collapse=",")),
-                                ifelse(!is.null(annotation_var),paste0(",'",as.character(df2[i,annotation_var]),"'"),""),"]",ifelse(i==nrow(df2),"",","),"\n"))
-  }
-  
-  htmp <- paste0(htmp,"]);\n\n") 
-  
-  htmp <- paste0(htmp,"var options = {\n")
-  htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Line chart of ",paste(num_vars, collapse=" and ")," - by ",x)),"',\n"))
-  htmp <- paste0(htmp,"width: ",width,",\n")
-  htmp <- paste0(htmp,"height: ",height,",\n")
+  htmp <- paste0(htmp,"chartArea: {backgroundColor: {stroke: '#4322c0',strokeWidth: 1}},\n")
   
   if (fullstacked==TRUE) {
     htmp <- paste0(htmp,"isStacked: 'percent',\n")
@@ -727,7 +809,7 @@ wzy.AREACHART.insert <- function(df, x=NULL, num_vars, fun=c("asis","sum","mean"
     htmp <- htmp
   }
   
-  htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
+  #htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
   if (smooth==TRUE) {htmp <- paste0(htmp,"curveType: 'function',\n")}
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
   htmp <- paste0(htmp,"vAxis: {title: '",gsub("asis ","",paste(fun,num_vars[1])),ifelse(stacked==TRUE || fullstacked==TRUE," (stacked)",""),"'},\n")
@@ -743,7 +825,6 @@ wzy.AREACHART.insert <- function(df, x=NULL, num_vars, fun=c("asis","sum","mean"
   .wjavafuns <<- c(.wjavafuns,htmp)
   .wcontent <<- c(.wcontent,paste0("<table align='",align,"' cellpadding=",.cellpadding,"><tr><td><div id='linechart_values",tilfstr,"'></div></td></tr></table>\n"))
 }
-
 
 # HTMLTABLE.init ####
 wzy.HTMLTABLE.init <- function(table_id=1,n_rows=2,n_cols=2,width='80%', border=0,align="center") {
