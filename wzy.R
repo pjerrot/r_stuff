@@ -28,7 +28,7 @@ wzy.init <- function(title="output", file="output.html", author="",
   str <- gsub("Å","&Aring;",str)
   return(str)
 }
-
+#
 # insert.TITLE ####
 wzy.TITLE.insert <- function(str, size=c("h3","h1","h2","h4","h5","h6"), 
                              small=FALSE, 
