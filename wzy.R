@@ -30,7 +30,13 @@ wzy.init <- function(title="output", file="output.html", author="",
 }
 
 # insert.TITLE ####
-wzy.TITLE.insert <- function(str, size=c("h3","h1","h2","h4","h5","h6"), small=FALSE, link=NULL, align="left", color="black") {
+wzy.TITLE.insert <- function(str, size=c("h3","h1","h2","h4","h5","h6"), 
+                             small=FALSE, 
+                             link=NULL, 
+                             align="left", 
+                             color="black",
+                             hr_line=TRUE,
+                             Hr_line_color="#E9E8E8") {
   size <- size[1]
   a_name <- paste0(size,"_idx_",floor(runif(1)*10000))
   contentblock_str <- paste0("<a href='#",a_name,"'>",str,"</a>")
@@ -38,12 +44,13 @@ wzy.TITLE.insert <- function(str, size=c("h3","h1","h2","h4","h5","h6"), small=F
   
   tmp <- paste0("<table width='100%' cellpadding=",.cellpadding,"><tr><td width=",.leftmargin,"></td><td align=",align,">")
   if (is.null(link)) {
-    .wcontent <<- c(.wcontent,paste0(tmp,"<",size,">",ifelse(small==TRUE,"<small>",""),"<a name='",a_name,"'><font color='",color,"'>",str,"</font></a>",ifelse(small==TRUE,"</small>",""),"</",size,"></td></tr></table>\n"))
+    .wcontent <<- c(.wcontent,paste0(tmp,"<",size,">",ifelse(small==TRUE,"<small>",""),"<a name='",a_name,"' style='text-decoration:none;'><font color='",color,"'>",str,"</font></a>",ifelse(small==TRUE,"</small>",""),"</",size,">",ifelse(hr_line==TRUE,paste0("<hr width='100%' color='",Hr_line_color,"'>","")),"</td></tr></table>\n"))
   } else {
-    .wcontent <<- c(.wcontent,paste0(tmp,"<",size,"><a name='",a_name,"' href='",link,"'>",ifelse(small==TRUE,"<small>",""),"<font color='",color,"'>",
-                                     str,"</font>",ifelse(small==TRUE,"</small>",""),"</a></",size,"></td></tr></table>\n"))
+    .wcontent <<- c(.wcontent,paste0(tmp,"<",size,"><a name='",a_name,"' href='",link,"' style='text-decoration:none;'>",ifelse(small==TRUE,"<small>",""),"<font color='",color,"'>",
+                                     str,"</font>",ifelse(small==TRUE,"</small>",""),"</a></",size,">",ifelse(hr_line==TRUE,paste0("<hr width='100%' color='",Hr_line_color,"'>","")),"</td></tr></table>\n"))
   }
 }
+
 
 # insert.HORISONTALLINE ####
 wzy.HORISONTALLINE.insert <- function(color="black",thickness=1, width="80%") {
@@ -59,7 +66,7 @@ wzy.LINEBREAK.insert <- function(count=1) {
 wzy.HTML.insert <- function(str) {.wcontent <<- c(.wcontent,str)}
 
 # insert.TEXT ####
-wzy.TEXT.insert <- function(str, fontsize=14, fontface="Arial", 
+wzy.TEXT.insert <- function(str, fontsize=16, fontface="Arial", 
                             align="left", 
                             boxwidth=850,
                             leftmargin = .leftmargin,
@@ -70,8 +77,8 @@ wzy.TEXT.insert <- function(str, fontsize=14, fontface="Arial",
 
 # insert.DATAFRAME ####
 wzy.DATAFRAME.insert <- function(df, align="center", maxrows=50, pagesize=10, 
-                               showRowNumber="FALSE", width="100%", height="60%",
-                               title = NULL, titlefontsize=18) {
+                                 showRowNumber="FALSE", width="100%", height="60%",
+                                 title = NULL, titlefontsize=18) {
   tilfstr <- as.character(floor(runif(1)*1000))
   
   htmp <- paste0("google.charts.load('current', {'packages':['table']}); \n")
@@ -118,7 +125,7 @@ wzy.DATAFRAME.insert <- function(df, align="center", maxrows=50, pagesize=10,
 
 #wrapup ####
 wzy.wrapup <- function() {
-
+  
   html <- paste("<html>\n")
   html <- paste(html,"<head>\n")
   html <- paste(html,"<link rel='stylesheet' href='https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css' integrity='sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh' crossorigin='anonymous'>\n")
@@ -208,12 +215,12 @@ wzy.wrapup <- function() {
 
 # insert.BARCHART ####
 wzy.BARCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","mean","median","sd"), 
-                                  annotation_var = NULL,
-                                  chart_title=NULL,
-                                  titlefontsize=18,
-                                  #subtitle = NULL,
-                                  legendposition = c("right"),
-                                  align="center", width="600", height="600") {
+                                annotation_var = NULL,
+                                chart_title=NULL,
+                                titlefontsize=18,
+                                #subtitle = NULL,
+                                legendposition = c("right"),
+                                align="center", width="600", height="600") {
   library(dplyr)
   
   tilfstr <- as.character(floor(runif(1)*1000))
@@ -287,16 +294,16 @@ wzy.GGPLOT.insert <- function(plot, chart_title=NULL, titlefontsize=18,align="ce
 
 # insert.COLUMNCHART ####
 wzy.COLUMNCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","mean","median","sd"), 
-                                     stacked = FALSE,
-                                     fullstacked = FALSE,
-                                     annotation_var = NULL,
-                                     chart_title=NULL,
-                                     titlefontsize=18,
-                                     #subtitle = NULL,
-                                     legendposition = c("right"),
-                                     align="left", width="700", height="600") {
+                                   stacked = FALSE,
+                                   fullstacked = FALSE,
+                                   annotation_var = NULL,
+                                   chart_title=NULL,
+                                   titlefontsize=18,
+                                   #subtitle = NULL,
+                                   legendposition = c("right"),
+                                   align="left", width="700", height="600") {
   library(dplyr)
-
+  
   tilfstr <- as.character(floor(runif(1)*1000))
   fun <- fun[1]
   
@@ -338,7 +345,7 @@ wzy.COLUMNCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","
     htmp <- htmp
   }
   
-#  if (fullstacked==TRUE) htmp <- paste0(htmp,"options_fullStacked = {isStacked: 'percent'},\n")
+  #  if (fullstacked==TRUE) htmp <- paste0(htmp,"options_fullStacked = {isStacked: 'percent'},\n")
   #htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
   if (length(num_vars)==1) {htmp <- paste0(htmp,"vAxis: {title: '",gsub("asis ","",paste(fun,num_vars[1])),"'},\n")}
@@ -357,13 +364,13 @@ wzy.COLUMNCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","
 
 # insert.SCATTERPLOT ####
 wzy.SCATTERPLOT.insert <- function(df, x, y,
-                                     samplesize = 100,
-                                     trendline = FALSE,
-                                     chart_title=NULL,
-                                     titlefontsize=18,
-                                     #subtitle = NULL,
-                                     legendposition = c("right"),
-                                     align="left", width="700", height="600") {
+                                   samplesize = 100,
+                                   trendline = FALSE,
+                                   chart_title=NULL,
+                                   titlefontsize=18,
+                                   #subtitle = NULL,
+                                   legendposition = c("right"),
+                                   align="left", width="700", height="600") {
   library(dplyr)
   
   tilfstr <- as.character(floor(runif(1)*1000))
@@ -414,7 +421,7 @@ wzy.BUBBLECHART.insert <- function(df,
                                    x, y,
                                    idvar = NULL,
                                    groupvar = NULL,
-                                   groupsizevar = NULL,
+                                   sizevar = NULL,
                                    samplesize = -1,
                                    chart_title=NULL,
                                    titlefontsize=18,
@@ -437,17 +444,17 @@ wzy.BUBBLECHART.insert <- function(df,
   if (is.null(groupvar)) {
     groupvar <- "grp_"
     df[,groupvar] <- "all"
-    groupsizevar = "grpsize_"
-    df[,groupsizevar] <- 1
+    sizevar = "grpsize_"
+    df[,sizevar] <- 1
   }
-  if (is.null(groupsizevar)) {
-    groupsizevar <- "grpsize_"
-    df[,groupsizevar] <- 1
+  if (is.null(sizevar)) {
+    sizevar <- "grpsize_"
+    df[,sizevar] <- 1
   }
   df <- na.omit(df)
   
   # column names 
-  htmp <- paste0(htmp, paste0("['",idvar,"','",x,"','",y,"','",groupvar,"','",groupsizevar,"'],\n"))
+  htmp <- paste0(htmp, paste0("['",idvar,"','",x,"','",y,"','",groupvar,"','",sizevar,"'],\n"))
   
   set.seed(1234)
   if (samplesize>-1) {
@@ -457,7 +464,7 @@ wzy.BUBBLECHART.insert <- function(df,
   # data values
   #df <- data.frame(df)
   for (i in 1:nrow(df)) {
-    htmp <- paste0(htmp, paste0("['",df[i,idvar],"', ", df[i,x],",",df[i,y],", '",df[i,groupvar],"',", df[i,groupsizevar]," ]",ifelse(!i==nrow(df),",",""),"\n"))
+    htmp <- paste0(htmp, paste0("['",df[i,idvar],"', ", df[i,x],",",df[i,y],", '",df[i,groupvar],"',", df[i,sizevar]," ]",ifelse(!i==nrow(df),",",""),"\n"))
   }
   
   htmp <- paste0(htmp,"]);\n\n") 
@@ -472,11 +479,11 @@ wzy.BUBBLECHART.insert <- function(df,
   htmp <- paste0(htmp,"vAxis: {title: '",y,"', minValue: ",min(df[,y]) - (max(df[,y]) - min(df[,y]))*0.1,", maxValue: ",max(df[,y]) + (max(df[,y]) - min(df[,y]))*0.1,"}, \n")
   htmp <- paste0(htmp,"hAxis: {title: '",x,"', minValue: ",min(df[,x]) - (max(df[,x]) - min(df[,x]))*0.1,", maxValue: ",max(df[,x]) + (max(df[,x]) - min(df[,x]))*0.1,"}, \n")
   
-  if (groupsizevar=="grpsize_") htmp <- paste0(htmp,"bubble:  {textStyle: {fontSize: 8}, sizeAxis: {maxValue: 3}},\n")
+  if (sizevar=="grpsize_") htmp <- paste0(htmp,"bubble:  {textStyle: {fontSize: 8}, sizeAxis: {maxValue: 3}},\n")
   htmp <- paste0(htmp,"sizeAxis: {minSize: 8, maxSize: 9},\n")
   
   #
-  #  if (groupsizevar=="grpsize_") htmp <- paste0(htmp," {pointSize: 2}, \n")
+  #  if (sizevar=="grpsize_") htmp <- paste0(htmp," {pointSize: 2}, \n")
   #htmp <- paste0(htmp,"},\n")
   
   if (!is.null(legendposition)) {htmp <- paste0(htmp,"legend: { position: '",legendposition,"' },\n")}
@@ -500,7 +507,7 @@ wzy.PIECHART.insert <- function(df, group_var, num_var=NULL, fun=c("asis","n","s
                                 #subtitle = NULL,
                                 legendposition = c("right"),
                                 sliceVisibilityThreshold = 0.2,
-                                align="left", width=700, height=600) {
+                                align="center", width=550, height=500) {
   library(dplyr)
   
   tilfstr <- as.character(floor(runif(1)*1000))
