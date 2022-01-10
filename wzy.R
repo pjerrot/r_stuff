@@ -77,8 +77,8 @@ wzy.TEXT.insert <- function(str, fontsize=16, fontface="Arial",
 
 # insert.DATAFRAME ####
 wzy.DATAFRAME.insert <- function(df, align="center", maxrows=50, pagesize=10, 
-                               showRowNumber="FALSE", width="100%", height="60%",
-                               title = NULL, titlefontsize=18) {
+                                 showRowNumber="FALSE", width="100%", height="60%",
+                                 title = NULL, titlefontsize=18) {
   tilfstr <- as.character(floor(runif(1)*1000))
   
   htmp <- paste0("google.charts.load('current', {'packages':['table']}); \n")
@@ -125,7 +125,7 @@ wzy.DATAFRAME.insert <- function(df, align="center", maxrows=50, pagesize=10,
 
 #wrapup ####
 wzy.wrapup <- function() {
-
+  
   html <- paste("<html>\n")
   html <- paste(html,"<head>\n")
   html <- paste(html,"<link rel='stylesheet' href='https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css' integrity='sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh' crossorigin='anonymous'>\n")
@@ -215,12 +215,12 @@ wzy.wrapup <- function() {
 
 # insert.BARCHART ####
 wzy.BARCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","mean","median","sd"), 
-                                  annotation_var = NULL,
-                                  chart_title=NULL,
-                                  titlefontsize=18,
-                                  #subtitle = NULL,
-                                  legendposition = c("right"),
-                                  align="center", width="600", height="600") {
+                                annotation_var = NULL,
+                                chart_title=NULL,
+                                titlefontsize=18,
+                                #subtitle = NULL,
+                                legendposition = c("right"),
+                                align="center", width="600", height="600") {
   library(dplyr)
   
   tilfstr <- as.character(floor(runif(1)*1000))
@@ -294,16 +294,16 @@ wzy.GGPLOT.insert <- function(plot, chart_title=NULL, titlefontsize=18,align="ce
 
 # insert.COLUMNCHART ####
 wzy.COLUMNCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","mean","median","sd"), 
-                                     stacked = FALSE,
-                                     fullstacked = FALSE,
-                                     annotation_var = NULL,
-                                     chart_title=NULL,
-                                     titlefontsize=18,
-                                     #subtitle = NULL,
-                                     legendposition = c("right"),
-                                     align="left", width="700", height="600") {
+                                   stacked = FALSE,
+                                   fullstacked = FALSE,
+                                   annotation_var = NULL,
+                                   chart_title=NULL,
+                                   titlefontsize=18,
+                                   #subtitle = NULL,
+                                   legendposition = c("right"),
+                                   align="left", width="700", height="600") {
   library(dplyr)
-
+  
   tilfstr <- as.character(floor(runif(1)*1000))
   fun <- fun[1]
   
@@ -345,7 +345,7 @@ wzy.COLUMNCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","
     htmp <- htmp
   }
   
-#  if (fullstacked==TRUE) htmp <- paste0(htmp,"options_fullStacked = {isStacked: 'percent'},\n")
+  #  if (fullstacked==TRUE) htmp <- paste0(htmp,"options_fullStacked = {isStacked: 'percent'},\n")
   #htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
   if (length(num_vars)==1) {htmp <- paste0(htmp,"vAxis: {title: '",gsub("asis ","",paste(fun,num_vars[1])),"'},\n")}
@@ -364,13 +364,13 @@ wzy.COLUMNCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","
 
 # insert.SCATTERPLOT ####
 wzy.SCATTERPLOT.insert <- function(df, x, y,
-                                     samplesize = 100,
-                                     trendline = FALSE,
-                                     chart_title=NULL,
-                                     titlefontsize=18,
-                                     #subtitle = NULL,
-                                     legendposition = c("right"),
-                                     align="left", width="700", height="600") {
+                                   samplesize = 100,
+                                   trendline = FALSE,
+                                   chart_title=NULL,
+                                   titlefontsize=18,
+                                   #subtitle = NULL,
+                                   legendposition = c("right"),
+                                   align="left", width="700", height="600") {
   library(dplyr)
   
   tilfstr <- as.character(floor(runif(1)*1000))

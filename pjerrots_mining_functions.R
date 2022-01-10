@@ -1838,3 +1838,27 @@ stringBTMclus <- function(df,textvarname,grpname=NULL,n_clusters,avoidwords=NULL
   names(out) <- c("clusters","modplot","clusterstats","worddf")
   return(out)
 }
+
+to_excelfile <- function(df, outputfile,title="outpyt") {
+  library("openxlsx")
+  mywb <- createWorkbook(
+    creator = "John Westberg",
+    title = title,
+    subject = NULL,
+    category = NULL
+  )
+  
+  addWorksheet(wb=mywb,sheetName=paste0("output"), zoom=120)
+  writeDataTable(
+    wb=mywb,
+    sheet=paste0("output"),
+    x=df,
+    startCol = 1,
+    startRow = 1,
+    sep = ", ",
+    stack = FALSE
+  )
+  # Saving output data to excel ####
+  saveWorkbook(mywb, outputfile, overwrite = TRUE, returnValue = FALSE)
+  
+}
