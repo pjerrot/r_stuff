@@ -3,8 +3,41 @@ wzy.init <- function(title="output", file="output.html", author="",
                      leftmargin = 70,
                      cellpadding = 7,
                      width = 900,
+                     color_scheme = c("default","manual","palette1","palette2","palette3","palette4","palette5",
+                                      "rustic","sky","flower","sand","beach",
+                                      "google","twitter","facebook","microsoft"),
+                     color_scheme_manual_colors = NULL,
                      sidepanelscolor="grey",
                      includecontentblock=TRUE, pdfcopy=FALSE) {
+  
+  if (color_scheme=="manual" & is.null(color_scheme_manual_colors)) {
+    stop("You need to specify vector of manual colors to use - in 'color_scheme_manual_colors' parameter.")
+  } 
+  
+  color_scheme <- color_scheme[1]
+  
+  .colorstr <- ifelse(color_scheme=="palette1","'#a2b9bc','#b2ad7f','#878f99','#6b5b95','#6b5b95','#feb236','#d64161','#ff7b25'",
+                      ifelse(color_scheme=="palette2","'#d6cbd3','#eca1a6','#bdcebe','#ada397','#d5e1df','#e3eaa7','#b5e7a0','#86af49'",
+                             ifelse(color_scheme=="palette3","'#b9936c','#dac292','#e6e2d3','#c4b7a6','#3e4444','#82b74b','#405d27','#c1946a'",
+                                    ifelse(color_scheme=="palette4","'#92a8d1','#034f84','#f7cac9','#f7786b','#deeaee','#b1cbbb','#eea29a','#c94c4c'",
+                                           ifelse(color_scheme=="palette5","'#f0f0f0','#c5d5c5','#9fa9a3','#e3e0cc','#eaece5','#b2c2bf','#c0ded9','#3b3a30'",
+                                                  ifelse(color_scheme=="rustic","'#c8c3cc','#563f46','#8ca3a3','#484f4f','#e0e2e4','#c6bcb6','#96897f','#625750'",
+                                                         ifelse(color_scheme=="sky","'#bccad6','#8d9db6','#667292','#f1e3dd','#cfe0e8','#b7d7e8','#87bdd8','#daebe8'",
+                                                                ifelse(color_scheme=="sand","'#fbefcc','#f9ccac','#f4a688','#e0876a','#fff2df','#d9ad7c','#a2836e','#674d3c'",
+                                                                       ifelse(color_scheme=="flower","'#f9d5e5','#eeac99','#e06377','#c83349','#5b9aa0','#d6d4e0','#b8a9c9','#622569'",
+                                                                              ifelse(color_scheme=="beach", "'#96ceb4','#ffeead','#ffcc5c','#ff6f69','#588c7e','#f2e394','#f2ae72','#d96459'",
+                                                                                     ifelse(color_scheme=="google","'#4285F4','#FBBC05','#34A853','#EA4335'",
+                                                                                            ifelse(color_scheme=="twitter","'#55ACEE','#292F33','#66757F','#CCD6DD','#E1E8ED','#FFFFFF'",
+                                                                                                   ifelse(color_scheme=="facebook","'#3B5998','#8B9DC3','#DFE3EE','#F7F7F7','#FFFFFF'",
+                                                                                                          ifelse(color_scheme=="microsoft","'#F65314','#7CBB00','#00A1F1','#FFBB00'",
+                                                                                                                 ifelse(color_scheme=="manual",paste0("'",paste(color_scheme_manual_colors, collapse="','"),"'"),"")))))))))))))))
+  
+  defcol <- "'#3366cc','#dc3912','#ff9900','#109618','#990099','#0099c6','#dd4477','#66aa00','#b82e2e','#316395','#994499','#22aa99','#aaaa11','#6633cc','#e67300','#8b0707',
+'#651067','#329262','#5574a6','#3b3eac','#b77322','#16d620','#b91383','#f4359e','#9c5935','#a9c413','#2a778d','#668d1c','#bea413','#0c5922','#743411'"
+  
+  
+  .colorstr <<- ifelse(color_scheme=="default",defcol,paste0(.colorstr,",",defcol))   
+  
   .wjavafuns <<- c()
   .wcontent <<- c()
   .wcontentblock <<- c()
@@ -44,9 +77,9 @@ wzy.TITLE.insert <- function(str, size=c("h3","h1","h2","h4","h5","h6"),
   
   tmp <- paste0("<table width='100%' cellpadding=",.cellpadding,"><tr><td width=",.leftmargin,"></td><td align=",align,">")
   if (is.null(link)) {
-    .wcontent <<- c(.wcontent,paste0(tmp,"<",size,">",ifelse(small==TRUE,"<small>",""),"<a name='",a_name,"' style='text-decoration:none;'><font color='",color,"'>",str,"</font></a>",ifelse(small==TRUE,"</small>",""),"</",size,">",ifelse(hr_line==TRUE,paste0("<hr width='100%' color='",Hr_line_color,"'>","")),"</td></tr></table>\n"))
+    .wcontent <<- c(.wcontent,paste0(tmp,"<",size,">",ifelse(small==TRUE,"<small>",""),"<a name='",a_name,"' style='text-decoration:none;'><font color='",color,"'><br>",str,"</font></a>",ifelse(small==TRUE,"</small>",""),"</",size,">",ifelse(hr_line==TRUE,paste0("<hr width='100%' color='",Hr_line_color,"'>","")),"</td></tr></table>\n"))
   } else {
-    .wcontent <<- c(.wcontent,paste0(tmp,"<",size,"><a name='",a_name,"' href='",link,"' style='text-decoration:none;'>",ifelse(small==TRUE,"<small>",""),"<font color='",color,"'>",
+    .wcontent <<- c(.wcontent,paste0(tmp,"<",size,"><a name='",a_name,"' href='",link,"' style='text-decoration:none;'>",ifelse(small==TRUE,"<small>",""),"<font color='",color,"'><br>",
                                      str,"</font>",ifelse(small==TRUE,"</small>",""),"</a></",size,">",ifelse(hr_line==TRUE,paste0("<hr width='100%' color='",Hr_line_color,"'>","")),"</td></tr></table>\n"))
   }
 }
@@ -256,6 +289,7 @@ wzy.BARCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","mea
   htmp <- paste0(htmp,"width: ",width,",\n")
   htmp <- paste0(htmp,"height: ",height,",\n")
   #htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
+  htmp <- paste0(htmp,"colors: [",.colorstr,"],\n")
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
   if (length(num_vars)==1) {htmp <- paste0(htmp,"hAxis: {title: '",gsub("asis ","",paste(fun,num_vars[1])),"'},\n")}
   htmp <- paste0(htmp,"vAxis: {title: '",group_var,"'},\n")
@@ -346,7 +380,8 @@ wzy.COLUMNCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","
   }
   
   #  if (fullstacked==TRUE) htmp <- paste0(htmp,"options_fullStacked = {isStacked: 'percent'},\n")
-  #htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
+  #  '#a2b9bc','#b2ad7f','#878f99','#6b5b95','#6b5b95','#feb236','#d64161','#ff7b25'
+  htmp <- paste0(htmp,"colors: [",.colorstr,"],\n")
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
   if (length(num_vars)==1) {htmp <- paste0(htmp,"vAxis: {title: '",gsub("asis ","",paste(fun,num_vars[1])),"'},\n")}
   htmp <- paste0(htmp,"hAxis: {title: '",group_var,"'},\n")
@@ -399,7 +434,7 @@ wzy.SCATTERPLOT.insert <- function(df, x, y,
   htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Scatter chart of ",x, " vs. ",y,"',\n"))))
   htmp <- paste0(htmp,"width: ",width,",\n")
   htmp <- paste0(htmp,"height: ",height,",\n")
-  #htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
+  htmp <- paste0(htmp,"colors: [",.colorstr,"],\n")
   htmp <- paste0(htmp,"chartArea: {backgroundColor: {stroke: '#4322c0',strokeWidth: 1}},\n")
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
   htmp <- paste0(htmp,"vAxis: {title: '",y,"', minValue: ",min(df[,y]) - (max(df[,y]) - min(df[,y]))*0.1,", maxValue: ",max(df[,y]) + (max(df[,y]) - min(df[,y]))*0.1,"}, \n")
@@ -473,7 +508,7 @@ wzy.BUBBLECHART.insert <- function(df,
   htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Bubble chart of ",x, " vs. ",y,"',\n"))))
   htmp <- paste0(htmp,"width: ",width,",\n")
   htmp <- paste0(htmp,"height: ",height,",\n")
-  #htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
+  htmp <- paste0(htmp,"colors: [",.colorstr,"],\n")
   #htmp <- paste0(htmp,"chartArea: {backgroundColor: {stroke: '#4322c0',strokeWidth: 1}},\n")
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
   htmp <- paste0(htmp,"vAxis: {title: '",y,"', minValue: ",min(df[,y]) - (max(df[,y]) - min(df[,y]))*0.1,", maxValue: ",max(df[,y]) + (max(df[,y]) - min(df[,y]))*0.1,"}, \n")
@@ -506,7 +541,7 @@ wzy.PIECHART.insert <- function(df, group_var, num_var=NULL, fun=c("asis","n","s
                                 titlefontsize=18,
                                 #subtitle = NULL,
                                 legendposition = c("right"),
-                                sliceVisibilityThreshold = 0.2,
+                                sliceVisibilityThreshold = 0.05,
                                 align="center", width=550, height=500) {
   library(dplyr)
   
@@ -548,7 +583,7 @@ wzy.PIECHART.insert <- function(df, group_var, num_var=NULL, fun=c("asis","n","s
   htmp <- paste0(htmp,"is3D: ",tolower(is3D),",\n")
   htmp <- paste0(htmp,"chartArea: {backgroundColor: {stroke: '#4322c0',strokeWidth: 1}},\n")
   #  htmp <- paste0(htmp,"height: ",height,",\n")
-  #htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
+  htmp <- paste0(htmp,"colors: [",.colorstr,"],\n")
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
   htmp <- paste0(htmp,"sliceVisibilityThreshold: ",sliceVisibilityThreshold,",\n")
   htmp <- paste0(htmp,"chartArea:{left:0,top:70,width:'100%',height:'100%'},\n")
@@ -708,7 +743,7 @@ wzy.LINECHART.insert <- function(df, x=NULL,
   htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Line chart of ",paste(num_vars, collapse=" and ")," - by ",x)),"',\n"))
   htmp <- paste0(htmp,"width: ",width,",\n")
   htmp <- paste0(htmp,"height: ",height,",\n")
-  #htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
+  htmp <- paste0(htmp,"colors: [",.colorstr,"],\n")
   if (smooth==TRUE) {htmp <- paste0(htmp,"curveType: 'function',\n")}
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
   if (length(num_vars)==1) {htmp <- paste0(htmp,"vAxis: {title: '",gsub("asis ","",paste(fun,num_vars[1])),"'},\n")}
@@ -816,7 +851,7 @@ wzy.AREACHART.insert <- function(df, x=NULL, num_vars, fun=c("asis","n","acc_n",
     htmp <- htmp
   }
   
-  #htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
+  htmp <- paste0(htmp,"colors: [",.colorstr,"],\n")
   if (smooth==TRUE) {htmp <- paste0(htmp,"curveType: 'function',\n")}
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
   htmp <- paste0(htmp,"vAxis: {title: '",gsub("asis ","",paste(fun,num_vars[1])),ifelse(stacked==TRUE || fullstacked==TRUE," (stacked)",""),"'},\n")
