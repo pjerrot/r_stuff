@@ -431,7 +431,7 @@ wzy.SCATTERPLOT.insert <- function(df, x, y,
   htmp <- paste0(htmp,"]);\n\n") 
   
   htmp <- paste0(htmp,"var options = {\n")
-  htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Scatter chart of ",x, " vs. ",y,"',\n"))))
+  htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title), chart_title, paste0("Scatter chart of ",x, " vs. ",y)),"',\n"))
   htmp <- paste0(htmp,"width: ",width,",\n")
   htmp <- paste0(htmp,"height: ",height,",\n")
   htmp <- paste0(htmp,"colors: [",.colorstr,"],\n")
@@ -886,4 +886,36 @@ wzy.HTMLTABLE.init <- function(table_id=1,n_rows=2,n_cols=2,width='80%', border=
 wzy.2HTMLTABLE.insert <- function(table_id=1, cell_id="[1,1]", content) {
   .wcontent <<- c(.wcontent,paste0("INSERT2HTMLTABLE(id=",table_id,",cell_id=",cell_id,")"))
   content
+}
+
+# insert.HISTOGRAM ####
+wzy.HISTOGRAM.insert <- function(df, num_var, breaks=10, log=FALSE,
+                                 chart_title=NULL,
+                                 annotation=TRUE,
+                                 titlefontsize=18,
+                                 legendposition = c("right"),
+                                 align="left", width="700", height="600") {
+  
+  if (is.null(chart_title)) {chart_title <- paste0("Histogram of ",num_var,ifelse(log==TRUE," (log)",""))}
+  
+  #df$cat <- ifelse(log==TRUE,cut(log(df[,num_var]),breaks),cut(df[,num_var],breaks))
+  
+  if (log==TRUE) {
+    if (any(na.omit(df[,num_var])<=0)==TRUE) {warning(paste0("Rows with ",num_var,"<=0 have been removed!"))}
+    df <- df[df[,num_var]>0,]
+    df$cat <- cut(log(df[,num_var]),breaks)
+  } else {
+    df$cat <- cut(df[,num_var],breaks)
+  }
+  
+  xname <- paste0(num_var,"_interval")
+  tmp <- df %>% group_by(cat) %>% summarise(n=n(),min_value=min(get(num_var)),max_value=max(get(num_var)))
+  tmp[,xname] <- paste0("(",tmp$min_value,",",tmp$max_value,"]")
+  
+  annotation_var <- NULL
+  if (annotation==TRUE) {annotation_var <- "n" }
+  
+  wzy.COLUMNCHART.insert(tmp, group_var = xname, num_vars = c("n"), chart_title=chart_title,
+                         legendposition=legendposition, annotation_var = annotation_var, align=align,
+                         width=width,height=height,titlefontsize=titlefontsize)
 }
