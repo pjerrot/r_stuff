@@ -10,6 +10,8 @@ wzy.init <- function(title="output", file="output.html", author="",
                      sidepanelscolor="grey",
                      includecontentblock=TRUE, pdfcopy=FALSE) {
   
+  require(pagedown)
+  
   if (color_scheme=="manual" & is.null(color_scheme_manual_colors)) {
     stop("You need to specify vector of manual colors to use - in 'color_scheme_manual_colors' parameter.")
   } 
@@ -102,9 +104,18 @@ wzy.HTML.insert <- function(str) {.wcontent <<- c(.wcontent,str)}
 wzy.TEXT.insert <- function(str, fontsize=16, fontface="Arial", 
                             align="left", 
                             boxwidth=850,
+                            boxheight=120,
+                            scrollbar=FALSE,
                             leftmargin = .leftmargin,
                             cellpadding=10) {
   htmp <- paste0("<table align='",align,"' width=",boxwidth," cellpadding=",.cellpadding,"><tr><td width=",.leftmargin,"></td><td style='font-family:",fontface,"; font-size:",fontsize,"'>",str,"</td></tr></table>")
+  if (scrollbar==TRUE) {
+    htmp <- paste0("<table align='",align,"' width=",boxwidth," cellpadding=",.cellpadding,"><tr><td width=",
+                   .leftmargin,"></td><td style='font-family:",fontface,
+                   "; font-size:",fontsize,"'><div style='height:",boxheight,"px; border:1px solid #ccc;overflow:auto;'>",str,"</div></td></tr></table>")
+    if (.pdfcopy==TRUE) warning("Scrollbars does not show correctly in pdf file!")
+  }
+  
   .wcontent <<- c(.wcontent,htmp)
 }
 
@@ -243,7 +254,7 @@ wzy.wrapup <- function() {
     chrome_print(.wfile,pdffile,format="pdf",timeout=50,wait=3)
   }
   
-  return(html)
+  #return(html)
 }
 
 # insert.BARCHART ####
