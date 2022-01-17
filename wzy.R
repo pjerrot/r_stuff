@@ -3,20 +3,22 @@ wzy.init <- function(title="output", file="output.html", author="",
                      leftmargin = 70,
                      cellpadding = 7,
                      width = 900,
-                     color_scheme = c("default","manual","palette1","palette2","palette3","palette4","palette5",
-                                      "rustic","sky","flower","sand","beach",
-                                      "google","twitter","facebook","microsoft"),
+                     color_scheme = NULL,
                      color_scheme_manual_colors = NULL,
                      sidepanelscolor="grey",
                      includecontentblock=TRUE, pdfcopy=FALSE) {
   
   require(pagedown)
   
-  if (color_scheme=="manual" & is.null(color_scheme_manual_colors)) {
-    stop("You need to specify vector of manual colors to use - in 'color_scheme_manual_colors' parameter.")
-  } 
-  
-  color_scheme <- color_scheme[1]
+  if (is.null(color_scheme)) {
+    color_scheme <- "default"
+  } else {
+    if (color_scheme=="manual" & is.null(color_scheme_manual_colors)) {
+      stop("You need to specify vector of manual colors to use - in 'color_scheme_manual_colors' parameter.")
+    }
+  }
+  # Available color schemes: c("default","manual","palette1","palette2","palette3","palette4","palette5",
+    # "rustic","sky","flower","sand","beach","google","twitter","facebook","microsoft")
   
   .colorstr <- ifelse(color_scheme=="palette1","'#a2b9bc','#b2ad7f','#878f99','#6b5b95','#6b5b95','#feb236','#d64161','#ff7b25'",
                       ifelse(color_scheme=="palette2","'#d6cbd3','#eca1a6','#bdcebe','#ada397','#d5e1df','#e3eaa7','#b5e7a0','#86af49'",
@@ -36,7 +38,6 @@ wzy.init <- function(title="output", file="output.html", author="",
   
   defcol <- "'#3366cc','#dc3912','#ff9900','#109618','#990099','#0099c6','#dd4477','#66aa00','#b82e2e','#316395','#994499','#22aa99','#aaaa11','#6633cc','#e67300','#8b0707',
 '#651067','#329262','#5574a6','#3b3eac','#b77322','#16d620','#b91383','#f4359e','#9c5935','#a9c413','#2a778d','#668d1c','#bea413','#0c5922','#743411'"
-  
   
   .colorstr <<- ifelse(color_scheme=="default",defcol,paste0(.colorstr,",",defcol))   
   
@@ -85,7 +86,6 @@ wzy.TITLE.insert <- function(str, size=c("h3","h1","h2","h4","h5","h6"),
                                      str,"</font>",ifelse(small==TRUE,"</small>",""),"</a></",size,">",ifelse(hr_line==TRUE,paste0("<hr width='100%' color='",Hr_line_color,"'>","")),"</td></tr></table>\n"))
   }
 }
-
 
 # insert.HORISONTALLINE ####
 wzy.HORISONTALLINE.insert <- function(color="black",thickness=1, width="80%") {
