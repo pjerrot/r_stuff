@@ -327,7 +327,8 @@ wzy.GGPLOT.insert <- function(plot, chart_title=NULL, titlefontsize=18,align="ce
 }
 
 # insert.COLUMNCHART ####
-wzy.COLUMNCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","mean","median","sd"), 
+wzy.COLUMNCHART.insert <- function(df, group_var, num_vars, 
+                                   fun=c("asis","sum","mean","median","sd"), 
                                    stacked = FALSE,
                                    fullstacked = FALSE,
                                    annotation_var = NULL,
@@ -400,6 +401,7 @@ wzy.COLUMNCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","
 # insert.SCATTERPLOT ####
 wzy.SCATTERPLOT.insert <- function(df, x, y,
                                    samplesize = 100,
+                                   seed = NULL,
                                    trendline = FALSE,
                                    chart_title=NULL,
                                    titlefontsize=18,
@@ -419,7 +421,7 @@ wzy.SCATTERPLOT.insert <- function(df, x, y,
   # column names 
   htmp <- paste0(htmp, paste0("['",x,"','",y,"'],\n"))
   
-  set.seed(1234)
+  set.seed(ifelse(is.null(seed),1234,seed))
   df <- df[order(runif(nrow(df))),][1:min(samplesize,nrow(df)),]
   
   # data values
@@ -458,6 +460,7 @@ wzy.BUBBLECHART.insert <- function(df,
                                    groupvar = NULL,
                                    sizevar = NULL,
                                    samplesize = -1,
+                                   seed=NULL,
                                    chart_title=NULL,
                                    titlefontsize=18,
                                    legendposition = c("right"),
@@ -491,7 +494,7 @@ wzy.BUBBLECHART.insert <- function(df,
   # column names 
   htmp <- paste0(htmp, paste0("['",idvar,"','",x,"','",y,"','",groupvar,"','",sizevar,"'],\n"))
   
-  set.seed(1234)
+  set.seed(ifelse(is.null(seed),1234,seed))
   if (samplesize>-1) {
     df <- df[order(runif(nrow(df))),][1:min(samplesize,nrow(df)),]
   }
@@ -604,6 +607,7 @@ wzy.PIECHART.insert <- function(df, group_var, num_var=NULL, fun=c("asis","n","s
 wzy.LINECHART.insert <- function(df, x=NULL, 
                                  num_vars=NULL, 
                                  group_var=NULL, 
+                                 samplesize=100,
                                  fun=c("asis","n","acc_n","sum","mean","median","sd"),
                                  smooth=FALSE,
                                  trendline = FALSE,
@@ -645,10 +649,12 @@ wzy.LINECHART.insert <- function(df, x=NULL,
         if (fun=="n") {
           num_vars <- "n"
           df2 <- df %>% group_by(.data[[x]]) %>% summarise(n=n())
+          df2 <- data.frame(df2)
         } else if (fun=="acc_n") {
           1=1
         } else {
           df2 <- df %>% group_by(.data[[x]]) %>% summarise_at(.vars=num_vars,.funs=fun)
+          df2 <- data.frame(df2)
         }
         df2 <- df2[order(df2[,x]),]
       }
@@ -656,10 +662,12 @@ wzy.LINECHART.insert <- function(df, x=NULL,
       if (fun=="sum") {
         #num_vars <- "n"
         df2 <- df %>% group_by(.data[[x]]) %>% summarise_at(.vars=num_vars,.funs="sum")
+        df2 <- data.frame(df2)
         df2 <- df2[order(df2[,x]),]
       } else if (fun=="acc_n") {
         num_vars <- "acc_n"
         df2 <- df %>% group_by(.data[[x]]) %>% summarise_at(.vars=num_vars,.funs="cumsum")
+        df2 <- data.frame(df2)
         df2$acc_n <- cumsum(df2$n)
         df2 <- df2[order(df2[,x]),]
       }
@@ -668,6 +676,7 @@ wzy.LINECHART.insert <- function(df, x=NULL,
     if (!is.null(num_vars)) {
       if (fun=="asis") {
         df2 <- dcast(data=df,fun.aggregate=NULL, paste(x," ~ ",group_var),value.var=num_vars)
+        df2 <- data.frame(df2)
         num_vars <- colnames(df2)[-1]
         df2 <- df2[order(df2[,x]),]
       } else {
@@ -686,6 +695,7 @@ wzy.LINECHART.insert <- function(df, x=NULL,
         num_vars <- "acc_n"
         df2 <- df %>% group_by(.data[[x]],.data[[group_var]]) %>% summarise(n=n())
         df2 <- df2 %>% group_by(.data[[group_var]]) %>% summarise(x=.data[[x]],n=n,acc_n=cumsum(n))
+        df2 <- data.frame(df2)
         colnames(df2)[which(colnames(df2)=="x")] <- x
         df2 <- dcast(df2,as.formula(paste(x," ~ ",group_var)),value.var="acc_n")
         colnames(df2)[-1] <- paste0("acc_n_",colnames(df2)[-1])
@@ -714,6 +724,14 @@ wzy.LINECHART.insert <- function(df, x=NULL,
       }
     }
   }
+  
+  # does random sampling if too many rows
+  tilf <- runif(nrow(df2))
+  if (nrow(df2)>samplesize) {
+    df2 <- df2[order(tilf),][1:samplesize,]
+    df2 <- df2[order(df2[,x]),]
+  }
+  
   num_vars <- num_vars[num_vars %in% colnames(df2)]
   num_vars <- num_vars[!num_vars %in% c("NA")]
   
@@ -767,6 +785,7 @@ wzy.LINECHART.insert <- function(df, x=NULL,
   .wjavafuns <<- c(.wjavafuns,htmp)
   .wcontent <<- c(.wcontent,paste0("<table align='",align,"' cellpadding=",.cellpadding,"><tr><td><div id='linechart_values",tilfstr,"'></div></td></tr></table>\n"))
 }
+
 
 # insert.AREACHART ####
 wzy.AREACHART.insert <- function(df, x=NULL, num_vars, fun=c("asis","n","acc_n","sum","mean","median","sd"),
@@ -889,7 +908,10 @@ wzy.2HTMLTABLE.insert <- function(table_id=1, cell_id="[1,1]", content) {
 }
 
 # insert.HISTOGRAM ####
-wzy.HISTOGRAM.insert <- function(df, num_var, breaks=10, log=FALSE,
+wzy.HISTOGRAM.insert <- function(df, num_var, breaks=10, 
+                                 min_value=NULL,
+                                 max_value=NULL,
+                                 log=FALSE,
                                  chart_title=NULL,
                                  annotation=TRUE,
                                  titlefontsize=18,
@@ -897,6 +919,9 @@ wzy.HISTOGRAM.insert <- function(df, num_var, breaks=10, log=FALSE,
                                  align="left", width="700", height="600") {
   
   if (is.null(chart_title)) {chart_title <- paste0("Histogram of ",num_var,ifelse(log==TRUE," (log)",""))}
+  
+  if (!is.null(min_value)) df <- df[df[,num_var]>=min_value,]
+  if (!is.null(max_value)) df <- df[df[,num_var]<=max_value,]
   
   #df$cat <- ifelse(log==TRUE,cut(log(df[,num_var]),breaks),cut(df[,num_var],breaks))
   
