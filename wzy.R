@@ -494,6 +494,7 @@ wzy.BUBBLECHART.insert <- function(df,
                                    idvar = NULL,
                                    groupvar = NULL,
                                    sizevar = NULL,
+                                   bubblesize_min_max = c(1,30),
                                    samplesize = -1,
                                    seed=NULL,
                                    chart_title=NULL,
@@ -518,8 +519,6 @@ wzy.BUBBLECHART.insert <- function(df,
   if (is.null(groupvar)) {
     groupvar <- "grp_"
     df[,groupvar] <- "all"
-    sizevar = "grpsize_"
-    df[,sizevar] <- 1
   }
   if (is.null(sizevar)) {
     sizevar <- "grpsize_"
@@ -554,7 +553,7 @@ wzy.BUBBLECHART.insert <- function(df,
   htmp <- paste0(htmp,"hAxis: {title: '",x,"', minValue: ",min(df[,x]) - (max(df[,x]) - min(df[,x]))*0.1,", maxValue: ",max(df[,x]) + (max(df[,x]) - min(df[,x]))*0.1,"}, \n")
   
   if (sizevar=="grpsize_") htmp <- paste0(htmp,"bubble:  {textStyle: {fontSize: 8}, sizeAxis: {maxValue: 3}},\n")
-  htmp <- paste0(htmp,"sizeAxis: {minSize: 8, maxSize: 9},\n")
+  htmp <- paste0(htmp,"sizeAxis: {minSize: ",bubblesize_min_max[1],", maxSize: ",bubblesize_min_max[2],"},\n")
   
   if (length(chart_options)>0) {
     for (l in 1:length(chart_options)) {
