@@ -543,7 +543,7 @@ wzy.BUBBLECHART.insert <- function(df,
   htmp <- paste0(htmp,"]);\n\n") 
   
   htmp <- paste0(htmp,"var options = {\n")
-  htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Bubble chart of ",x, " vs. ",y,"',\n"))))
+  htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Bubble chart of ",x, " vs. ",y)),"',\n"))
   htmp <- paste0(htmp,"width: ",width,",\n")
   htmp <- paste0(htmp,"height: ",height,",\n")
   htmp <- paste0(htmp,"colors: [",.colorstr,"],\n")
