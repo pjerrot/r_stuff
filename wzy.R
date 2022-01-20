@@ -6,9 +6,12 @@ wzy.init <- function(title="output", file="output.html", author="",
                      color_scheme = NULL,
                      color_scheme_manual_colors = NULL,
                      sidepanelscolor="grey",
-                     includecontentblock=TRUE, pdfcopy=FALSE) {
+                     includecontentblock=TRUE, 
+                     pdfcopy=FALSE) {
   
   require(pagedown)
+  require(httpuv)
+  require(RCurl)
   
   if (is.null(color_scheme)) {
     color_scheme <- "default"
@@ -111,10 +114,10 @@ wzy.TEXT.insert <- function(str, fontsize=16, fontface="Arial",
                             scrollbar=FALSE,
                             leftmargin = .leftmargin,
                             cellpadding=10) {
-  htmp <- paste0("<table align='",align,"' width=",boxwidth," cellpadding=",.cellpadding,"><tr><td width=",.leftmargin,"></td><td style='font-family:",fontface,"; font-size:",fontsize,"'>",str,"</td></tr></table>")
+  htmp <- paste0("<table width=",boxwidth," cellpadding=",.cellpadding,"><tr><td width=",.leftmargin,"></td><td align='",align,"' style='font-family:",fontface,"; font-size:",fontsize,"'>",str,"</td></tr></table>")
   if (scrollbar==TRUE) {
     htmp <- paste0("<table align='",align,"' width=",boxwidth," cellpadding=",.cellpadding,"><tr><td width=",
-                   .leftmargin,"></td><td style='font-family:",fontface,
+                   .leftmargin,"></td><td align='",align,"' style='font-family:",fontface,
                    "; font-size:",fontsize,"'><div style='height:",boxheight,"px; border:1px solid #ccc;overflow:auto;'>",str,"</div></td></tr></table>")
     if (.pdfcopy==TRUE) warning("Scrollbars does not show correctly in pdf file!")
   }
