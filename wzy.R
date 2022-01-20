@@ -32,9 +32,12 @@ wzy.init <- function(title="output", file="output.html", author="",
                                                                               ifelse(color_scheme=="beach", "'#96ceb4','#ffeead','#ffcc5c','#ff6f69','#588c7e','#f2e394','#f2ae72','#d96459'",
                                                                                      ifelse(color_scheme=="google","'#4285F4','#FBBC05','#34A853','#EA4335'",
                                                                                             ifelse(color_scheme=="twitter","'#55ACEE','#292F33','#66757F','#CCD6DD','#E1E8ED','#FFFFFF'",
-                                                                                                   ifelse(color_scheme=="facebook","'#3B5998','#8B9DC3','#DFE3EE','#F7F7F7','#FFFFFF'",
-                                                                                                          ifelse(color_scheme=="microsoft","'#F65314','#7CBB00','#00A1F1','#FFBB00'",
-                                                                                                                 ifelse(color_scheme=="manual",paste0("'",paste(color_scheme_manual_colors, collapse="','"),"'"),"")))))))))))))))
+                                                                                                   ifelse(color_scheme=="noac","'#28A050','#AFF0D2','#46595A','#A0D583','#142828','#808080','#BCB4A4'",
+                                                                                                     ifelse(color_scheme=="facebook","'#3B5998','#8B9DC3','#DFE3EE','#F7F7F7','#FFFFFF'",
+                                                                                                            ifelse(color_scheme=="microsoft","'#F65314','#7CBB00','#00A1F1','#FFBB00'",
+                                                                                                                   ifelse(color_scheme=="manual",paste0("'",paste(color_scheme_manual_colors, collapse="','"),"'"),""))))))))))))))))
+  
+  
   
   defcol <- "'#3366cc','#dc3912','#ff9900','#109618','#990099','#0099c6','#dd4477','#66aa00','#b82e2e','#316395','#994499','#22aa99','#aaaa11','#6633cc','#e67300','#8b0707',
 '#651067','#329262','#5574a6','#3b3eac','#b77322','#16d620','#b91383','#f4359e','#9c5935','#a9c413','#2a778d','#668d1c','#bea413','#0c5922','#743411'"
@@ -300,7 +303,6 @@ wzy.BARCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","mea
   htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Bar chart of ",paste(num_vars, collapse=" and ")," - by ",group_var)),"',\n"))
   htmp <- paste0(htmp,"width: ",width,",\n")
   htmp <- paste0(htmp,"height: ",height,",\n")
-  #htmp <- paste0(htmp,"colors: ['#b0120a', '#ffab91'],\n")
   htmp <- paste0(htmp,"colors: [",.colorstr,"],\n")
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
   if (length(num_vars)==1) {htmp <- paste0(htmp,"hAxis: {title: '",gsub("asis ","",paste(fun,num_vars[1])),"'},\n")}
@@ -389,6 +391,7 @@ wzy.COLUMNCHART.insert <- function(df, group_var, num_vars,
   
   htmp <- paste0(htmp,"var options = {\n")
   htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Column chart of ",paste(num_vars, collapse=" and ")," - by ",group_var)),"',\n"))
+  #if (!is.null(subtitle)) {htmp <- paste0(htmp,"subtitle: '",subtitle,"',\n")}
   htmp <- paste0(htmp,"width: ",width,",\n")
   htmp <- paste0(htmp,"height: ",height,",\n")
   htmp <- paste0(htmp,"chartArea: {backgroundColor: {stroke: '#4322c0',strokeWidth: 1}},\n")
@@ -400,8 +403,6 @@ wzy.COLUMNCHART.insert <- function(df, group_var, num_vars,
     htmp <- htmp
   }
   
-  #  if (fullstacked==TRUE) htmp <- paste0(htmp,"options_fullStacked = {isStacked: 'percent'},\n")
-  #  '#a2b9bc','#b2ad7f','#878f99','#6b5b95','#6b5b95','#feb236','#d64161','#ff7b25'
   htmp <- paste0(htmp,"colors: [",.colorstr,"],\n")
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
   if (length(num_vars)==1) {htmp <- paste0(htmp,"vAxis: {title: '",gsub("asis ","",paste(fun,num_vars[1])),"'},\n")}
@@ -498,6 +499,7 @@ wzy.BUBBLECHART.insert <- function(df,
                                    samplesize = -1,
                                    seed=NULL,
                                    chart_title=NULL,
+                                   #subtitle=NULL,
                                    titlefontsize=18,
                                    legendposition = c("right"),
                                    align="left", width="700", height="600",
@@ -539,11 +541,11 @@ wzy.BUBBLECHART.insert <- function(df,
   for (i in 1:nrow(df)) {
     htmp <- paste0(htmp, paste0("['",df[i,idvar],"', ", df[i,x],",",df[i,y],", '",df[i,groupvar],"',", df[i,sizevar]," ]",ifelse(!i==nrow(df),",",""),"\n"))
   }
-  
   htmp <- paste0(htmp,"]);\n\n") 
   
   htmp <- paste0(htmp,"var options = {\n")
   htmp <- paste0(htmp,paste0("title: '",ifelse(!is.null(chart_title),chart_title,paste0("Bubble chart of ",x, " vs. ",y)),"',\n"))
+  #if (!is.null(subtitle)) {htmp <- paste0(htmp,"subtitle: '",subtitle,"',\n")}
   htmp <- paste0(htmp,"width: ",width,",\n")
   htmp <- paste0(htmp,"height: ",height,",\n")
   htmp <- paste0(htmp,"colors: [",.colorstr,"],\n")
@@ -561,7 +563,6 @@ wzy.BUBBLECHART.insert <- function(df,
     }
   }
   
-  #
   #  if (sizevar=="grpsize_") htmp <- paste0(htmp," {pointSize: 2}, \n")
   #htmp <- paste0(htmp,"},\n")
   
@@ -575,7 +576,6 @@ wzy.BUBBLECHART.insert <- function(df,
   .wjavafuns <<- c(.wjavafuns,htmp)
   .wcontent <<- c(.wcontent,paste0("<table align='",align,"' cellpadding=",.cellpadding,"><tr><td><div id='scatterplot_values",tilfstr,"'></div></td></tr></table><br>\n"))
 }
-
 
 # insert.PIECHART ####
 wzy.PIECHART.insert <- function(df, group_var, num_var=NULL, fun=c("asis","n","sum","mean","median","sd"), 
@@ -838,7 +838,6 @@ wzy.LINECHART.insert <- function(df, x=NULL,
   .wjavafuns <<- c(.wjavafuns,htmp)
   .wcontent <<- c(.wcontent,paste0("<table align='",align,"' cellpadding=",.cellpadding,"><tr><td><div id='linechart_values",tilfstr,"'></div></td></tr></table>\n"))
 }
-
 
 # insert.AREACHART ####
 wzy.AREACHART.insert <- function(df, x=NULL, num_vars, fun=c("asis","n","acc_n","sum","mean","median","sd"),
