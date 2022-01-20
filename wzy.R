@@ -83,10 +83,10 @@ wzy.TITLE.insert <- function(str, size=c("h3","h1","h2","h4","h5","h6"),
   
   tmp <- paste0("<table width='100%' cellpadding=",.cellpadding,"><tr><td width=",.leftmargin,"></td><td align=",align,">")
   if (is.null(link)) {
-    .wcontent <<- c(.wcontent,paste0(tmp,"<",size,">",ifelse(small==TRUE,"<small>",""),"<a name='",a_name,"' style='text-decoration:none;'><font color='",color,"'><br>",str,"</font></a>",ifelse(small==TRUE,"</small>",""),"</",size,">",ifelse(hr_line==TRUE,paste0("<hr width='100%' color='",Hr_line_color,"'>","")),"</td></tr></table>\n"))
+    .wcontent <<- c(.wcontent,paste0(tmp,"<",size,">",ifelse(small==TRUE,"<small>",""),"<a name='",a_name,"' style='text-decoration:none;'><font color='",color,"'><br>",str,"</font></a>",ifelse(small==TRUE,"</small>",""),"</",size,">",ifelse(hr_line==TRUE,paste0("<hr width='100%' color='",Hr_line_color,"'>",""),""),"</td></tr></table>\n"))
   } else {
     .wcontent <<- c(.wcontent,paste0(tmp,"<",size,"><a name='",a_name,"' href='",link,"' style='text-decoration:none;'>",ifelse(small==TRUE,"<small>",""),"<font color='",color,"'><br>",
-                                     str,"</font>",ifelse(small==TRUE,"</small>",""),"</a></",size,">",ifelse(hr_line==TRUE,paste0("<hr width='100%' color='",Hr_line_color,"'>","")),"</td></tr></table>\n"))
+                                     str,"</font>",ifelse(small==TRUE,"</small>",""),"</a></",size,">",ifelse(hr_line==TRUE,paste0("<hr width='100%' color='",Hr_line_color,"'>"),""),"</td></tr></table>\n"))
   }
 }
 
