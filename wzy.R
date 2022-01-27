@@ -331,21 +331,26 @@ wz.barchart <- function(df, group_var, num_vars, fun=c("asis","sum","mean","medi
 }
 
 # insert.ggplot ####
-wz.ggplot <- function(plot, chart_title=NULL, titlefontsize=18,align="center") {
+wz.ggplot <- function(plot, chart_title=NULL, titlefontsize=18, width=NULL, height=NULL, align="center") {
   library(ggplot2)
   library(RCurl)
   library(htmltools)
   
-  encodeGraphic <- function(g) {
+  he <- ifelse(!is.null(height),paste0("height=",height),"")
+  wi <- ifelse(!is.null(width),paste0("width=",width),"")
+  imdim <- paste0(he," ", wi)
+  
+  encodeGraphic <- function(g, imdim=imdim) {
     png(tf1 <- tempfile(fileext = ".png"))  # Get an unused filename in the session's temporary directory, and open that file for .png structured output.
     print(g)  # Output a graphic to the file
     dev.off()  # Close the file.
     txt <- RCurl::base64Encode(readBin(tf1, "raw", file.info(tf1)[1, "size"]), "txt")  # Convert the graphic image to a base 64 encoded string.
     myImage <- htmltools::HTML(sprintf('<img src="data:image/png;base64,%s">', txt))  # Save the image as a markdown-friendly html object.
+    myImage <- gsub("img src",paste0("img ",imdim," src"),myImage)
     return(myImage)
   }
   
-  hg <- encodeGraphic(plot)  # run the function that base64 encodes the graph
+  hg <- encodeGraphic(plot, imdim=imdim)  # run the function that base64 encodes the graph
   htmp <- paste0("<table align='",align,"' border=0 width=800 cellpadding=",.cellpadding,"><tr><td align='center'><p style='font-family:arial; font-size:",titlefontsize,"px'><b>&nbsp;&nbsp;&nbsp;",chart_title,"</b></p></td></tr><tr><td align='center'>",hg,"</td></tr></table><br>\n")
   .wcontent <<- c(.wcontent,htmp)
 }
@@ -1040,3 +1045,15 @@ wz.image <- function(image, align="center", width=NULL,height=NULL) {
   
   .wcontent <<- c(.wcontent,htmp)
 }
+
+wz.heatmap <- function(df,x,y,z,chart_title=NULL, width=NULL, height=NULL, align="center") {
+  if (is.null(chart_title)) chart_title <- paste0("Heatmap: ",x," by ",y," (color=",z,")")
+  if(!is.numeric(df[,z])) stop("The z-value (color) needs to be numeric.")
+  gpl <- ggplot(df, aes(.data[[x]], .data[[y]], fill=.data[[z]])) + 
+    geom_raster() + 
+    coord_fixed(expand = FALSE) +
+    scale_fill_viridis() +
+    ggtitle(chart_title)
+  wz.ggplot(gpl,align=align, height=height, width=width)
+}
+
