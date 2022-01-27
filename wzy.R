@@ -1,5 +1,5 @@
 # init ####
-wzy.init <- function(title="output", file="output.html", author="", 
+wz.init <- function(title="output", file="output.html", author="", 
                      leftmargin = 70,
                      cellpadding = 7,
                      width = 900,
@@ -71,8 +71,8 @@ wzy.init <- function(title="output", file="output.html", author="",
   return(str)
 }
 
-# insert.TITLE ####
-wzy.TITLE.insert <- function(str, size=c("h3","h1","h2","h4","h5","h6"), 
+# wz.title ####
+wz.title <- function(str, size=c("h3","h1","h2","h4","h5","h6"), 
                              small=FALSE, 
                              link=NULL, 
                              align="left", 
@@ -93,21 +93,21 @@ wzy.TITLE.insert <- function(str, size=c("h3","h1","h2","h4","h5","h6"),
   }
 }
 
-# insert.HORISONTALLINE ####
-wzy.HORISONTALLINE.insert <- function(color="black",thickness=1, width="80%") {
+# wz.horisontalline ####
+wz.horisontalline <- function(color="black",thickness=1, width="80%") {
   .wcontent <<- c(.wcontent,paste0("<table width='100%'><tr><td><hr align='center' style='height:",thickness,"px;width:",width,";background-color:",color,"'/></td></tr></table>\n"))
 }
 
-# insert.LINEBREAK ####
-wzy.LINEBREAK.insert <- function(count=1) {
+# wz.linebreak ####
+wz.linebreak <- function(count=1) {
   for (i in 1:count) {.wcontent <<- c(.wcontent,paste0("<br>"))}
 }
 
-# insert.HTML ####
-wzy.HTML.insert <- function(str) {.wcontent <<- c(.wcontent,str)}
+# insert.html ####
+wz.html <- function(str) {.wcontent <<- c(.wcontent,str)}
 
-# insert.TEXT ####
-wzy.TEXT.insert <- function(str, fontsize=16, fontface="Arial", 
+# insert.text ####
+wz.text <- function(str, fontsize=16, fontface="Arial", 
                             align="left", 
                             boxwidth=850,
                             boxheight=120,
@@ -125,8 +125,8 @@ wzy.TEXT.insert <- function(str, fontsize=16, fontface="Arial",
   .wcontent <<- c(.wcontent,htmp)
 }
 
-# insert.DATAFRAME ####
-wzy.DATAFRAME.insert <- function(df, align="center", maxrows=50, pagesize=10, 
+# insert DATAFRAME ####
+wz.dataframe <- function(df, align="center", maxrows=50, pagesize=10, 
                                  showRowNumber="FALSE", width="100%", height="60%",
                                  title = NULL, titlefontsize=18) {
   tilfstr <- as.character(floor(runif(1)*1000))
@@ -174,7 +174,7 @@ wzy.DATAFRAME.insert <- function(df, align="center", maxrows=50, pagesize=10,
 }
 
 #wrapup ####
-wzy.wrapup <- function() {
+wz.wrapup <- function() {
   
   html <- paste("<html>\n")
   html <- paste(html,"<head>\n")
@@ -264,7 +264,7 @@ wzy.wrapup <- function() {
 }
 
 # insert.BARCHART ####
-wzy.BARCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","mean","median","sd"), 
+wz.barchart <- function(df, group_var, num_vars, fun=c("asis","sum","mean","median","sd"), 
                                 annotation_var = NULL,
                                 chart_title=NULL,
                                 titlefontsize=18,
@@ -330,8 +330,8 @@ wzy.BARCHART.insert <- function(df, group_var, num_vars, fun=c("asis","sum","mea
   .wcontent <<- c(.wcontent,paste0("<table align='",align,"' cellpadding=",.cellpadding,",><tr><td><div id='barchart_values",tilfstr,"'></div></td></tr></table>\n"))
 }
 
-# insert.GGPLOT ####
-wzy.GGPLOT.insert <- function(plot, chart_title=NULL, titlefontsize=18,align="center") {
+# insert.ggplot ####
+wz.ggplot <- function(plot, chart_title=NULL, titlefontsize=18,align="center") {
   library(ggplot2)
   library(RCurl)
   library(htmltools)
@@ -351,7 +351,7 @@ wzy.GGPLOT.insert <- function(plot, chart_title=NULL, titlefontsize=18,align="ce
 }
 
 # insert.COLUMNCHART ####
-wzy.COLUMNCHART.insert <- function(df, group_var, num_vars, 
+wz.columnchart <- function(df, group_var, num_vars, 
                                    fun=c("asis","sum","mean","median","sd"), 
                                    stacked = FALSE,
                                    fullstacked = FALSE,
@@ -429,8 +429,8 @@ wzy.COLUMNCHART.insert <- function(df, group_var, num_vars,
   .wcontent <<- c(.wcontent,paste0("<table align='",align,"' cellpadding=",.cellpadding,"><tr><td><div id='barchart_values",tilfstr,"'></div></td></tr></table>\n"))
 }
 
-# insert.SCATTERPLOT ####
-wzy.SCATTERPLOT.insert <- function(df, x, y,
+# insert.scatterplot ####
+wz.scatterplot <- function(df, x, y,
                                    samplesize = 100,
                                    seed = NULL,
                                    trendline = FALSE,
@@ -493,7 +493,7 @@ wzy.SCATTERPLOT.insert <- function(df, x, y,
 }
 
 # insert.BUBBLECHART ####
-wzy.BUBBLECHART.insert <- function(df, 
+wz.bubblechart <- function(df, 
                                    x, y,
                                    idvar = NULL,
                                    groupvar = NULL,
@@ -581,7 +581,7 @@ wzy.BUBBLECHART.insert <- function(df,
 }
 
 # insert.PIECHART ####
-wzy.PIECHART.insert <- function(df, group_var, num_var=NULL, fun=c("asis","n","sum","mean","median","sd"), 
+wz.piechart <- function(df, group_var, num_var=NULL, fun=c("asis","n","sum","mean","median","sd"), 
                                 is3D = FALSE,
                                 annotation_var = NULL,
                                 chart_title=NULL,
@@ -654,7 +654,7 @@ wzy.PIECHART.insert <- function(df, group_var, num_var=NULL, fun=c("asis","n","s
 }
 
 # insert.LINECHART ####
-wzy.LINECHART.insert <- function(df, x=NULL, 
+wz.linechart <- function(df, x=NULL, 
                                  num_vars=NULL, 
                                  group_var=NULL, 
                                  samplesize=100,
@@ -843,7 +843,7 @@ wzy.LINECHART.insert <- function(df, x=NULL,
 }
 
 # insert.AREACHART ####
-wzy.AREACHART.insert <- function(df, x=NULL, num_vars, fun=c("asis","n","acc_n","sum","mean","median","sd"),
+wz.areachart <- function(df, x=NULL, num_vars, fun=c("asis","n","acc_n","sum","mean","median","sd"),
                                  stacked = FALSE,
                                  fullstacked = FALSE,
                                  smooth=FALSE,
@@ -950,7 +950,7 @@ wzy.AREACHART.insert <- function(df, x=NULL, num_vars, fun=c("asis","n","acc_n",
 }
 
 # HTMLTABLE.init ####
-wzy.HTMLTABLE.init <- function(table_id=1,n_rows=2,n_cols=2,width='80%', border=0,align="center") {
+wz.htmltable.init <- function(table_id=1,n_rows=2,n_cols=2,width='80%', border=0,align="center") {
   htmp <- paste0("<table name='HTMLTABLE_",table_id,"' cellpadding='1' id=",table_id," align='",align,"' width='",width,"' border=", border,">\n")
   for (i in 1:n_rows) {
     htmp <- paste0(htmp,"<tr>")
@@ -963,14 +963,14 @@ wzy.HTMLTABLE.init <- function(table_id=1,n_rows=2,n_cols=2,width='80%', border=
   .wcontent <<- c(.wcontent,htmp)
 }
 
-# 2HTMLTABLE.insert ####
-wzy.2HTMLTABLE.insert <- function(table_id=1, cell_id="[1,1]", content) {
+# 2HTMLTABLE ####
+wz.2htmltable <- function(table_id=1, cell_id="[1,1]", content) {
   .wcontent <<- c(.wcontent,paste0("INSERT2HTMLTABLE(id=",table_id,",cell_id=",cell_id,")"))
   content
 }
 
 # insert.HISTOGRAM ####
-wzy.HISTOGRAM.insert <- function(df, num_var, breaks=10, 
+wz.histogram <- function(df, num_var, breaks=10, 
                                  min_value=NULL,
                                  max_value=NULL,
                                  log=FALSE,
@@ -1003,13 +1003,13 @@ wzy.HISTOGRAM.insert <- function(df, num_var, breaks=10,
   annotation_var <- NULL
   if (annotation==TRUE) {annotation_var <- "n" }
 
-  wzy.COLUMNCHART.insert(tmp, group_var = xname, num_vars = c("n"), chart_title=chart_title,
+  wz.columnchart(tmp, group_var = xname, num_vars = c("n"), chart_title=chart_title,
                          legendposition=legendposition, annotation_var = annotation_var, align=align,
                          width=width,height=height,titlefontsize=titlefontsize,chart_options=chart_options)
 }
 
 # insert.IMAGE ####
-wzy.IMAGE.insert <- function(image, align="center", width=NULL,height=NULL) {
+wz.image <- function(image, align="center", width=NULL,height=NULL) {
   library(RCurl)
   library(htmltools)
   
