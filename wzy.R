@@ -1007,3 +1007,36 @@ wzy.HISTOGRAM.insert <- function(df, num_var, breaks=10,
                          legendposition=legendposition, annotation_var = annotation_var, align=align,
                          width=width,height=height,titlefontsize=titlefontsize,chart_options=chart_options)
 }
+
+# insert.IMAGE ####
+wzy.IMAGE.insert <- function(image, align="center", width=NULL,height=NULL) {
+  library(RCurl)
+  library(htmltools)
+  
+  he <- ifelse(!is.null(height),paste0("height=",height),"")
+  wi <- ifelse(!is.null(width),paste0("width=",width),"")
+  imdim <- paste0(he," ", wi)
+  
+  encodeGraphic <- function(tf1, imdim=imdim) {
+    #png(tf1 <- tempfile(fileext = ".png"))  # Get an unused filename in the session's temporary directory, and open that file for .png structured output.
+    #print(g)  # Output a graphic to the file
+    #dev.off()  # Close the file.
+    txt <- RCurl::base64Encode(readBin(tf1, "raw", file.info(tf1)[1, "size"]), "txt")  # Convert the graphic image to a base 64 encoded string.
+    myImage <- htmltools::HTML(sprintf('<img src="data:image/png;base64,%s">', txt))  # Save the image as a markdown-friendly html object.
+    myImage <- gsub("img src",paste0("img ",imdim," src"),myImage)
+    return(myImage)
+  }
+  
+  if (grepl("http",image)) {
+    htmp <- paste0("<table align='",align,"' border=0 width=800 cellpadding=",.cellpadding,
+                   "><tr><td align='",align,"'>
+                   <img ",imdim," src='",image,"'></td></tr></table><br>\n")
+    
+  } else {
+    hg <- encodeGraphic(tf1=image, imdim=imdim)  # run the function that base64 encodes the graph
+    htmp <- paste0("<table align='",align,"' border=0 width=800 cellpadding=",.cellpadding,
+                   "><tr><td align='",align,"'>",hg,"</td></tr></table><br>\n")
+  }
+  
+  .wcontent <<- c(.wcontent,htmp)
+}
