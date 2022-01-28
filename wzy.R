@@ -436,8 +436,8 @@ wz.columnchart <- function(df, group_var, num_vars,
 
 # insert.scatterplot ####
 wz.scatterplot <- function(df, x, y,
-                                   samplesize = 100,
-                                   seed = NULL,
+                                   samplesize = -1,
+                                   seed = 1234,
                                    trendline = FALSE,
                                    chart_title=NULL,
                                    titlefontsize=18,
@@ -458,8 +458,10 @@ wz.scatterplot <- function(df, x, y,
   # column names 
   htmp <- paste0(htmp, paste0("['",x,"','",y,"'],\n"))
   
-  set.seed(ifelse(is.null(seed),1234,seed))
-  df <- df[order(runif(nrow(df))),][1:min(samplesize,nrow(df)),]
+  set.seed(seed)
+  if (samplesize>-1) {
+    df <- df[order(runif(nrow(df))),][1:min(samplesize,nrow(df)),]
+  }
   
   # data values
   df <- data.frame(df)
@@ -1047,9 +1049,16 @@ wz.image <- function(image, align="center", width=NULL,height=NULL) {
 }
 
 # Insert heatmap ####
-wz.heatmap <- function(df,x,y,z,chart_title=NULL, width=NULL, height=NULL, align="center") {
+wz.heatmap <- function(df,x,y,z,chart_title=NULL, width=NULL, height=NULL, 
+                       align="center", seed=1234, samplesize=-1) {
   library(viridis)
   library(ggplot2)
+  
+  set.seed(seed)
+  if (samplesize>-1) {
+    df <- df[order(runif(nrow(df))),][1:min(samplesize,nrow(df)),]
+  }
+  
   if (is.null(chart_title)) chart_title <- paste0("Heatmap: ",x," by ",y," (color=",z,")")
   if(!is.numeric(df[,z])) stop("The z-value (color) needs to be numeric.")
   gpl <- ggplot(df, aes(.data[[x]], .data[[y]], fill=.data[[z]])) + 
