@@ -1046,7 +1046,10 @@ wz.image <- function(image, align="center", width=NULL,height=NULL) {
   .wcontent <<- c(.wcontent,htmp)
 }
 
+# Insert heatmap ####
 wz.heatmap <- function(df,x,y,z,chart_title=NULL, width=NULL, height=NULL, align="center") {
+  library(viridis)
+  library(ggplot2)
   if (is.null(chart_title)) chart_title <- paste0("Heatmap: ",x," by ",y," (color=",z,")")
   if(!is.numeric(df[,z])) stop("The z-value (color) needs to be numeric.")
   gpl <- ggplot(df, aes(.data[[x]], .data[[y]], fill=.data[[z]])) + 
