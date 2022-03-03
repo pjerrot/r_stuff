@@ -1863,3 +1863,16 @@ to_excelfile <- function(df, outputfile,title="outpyt") {
   
 }
 
+compare_dfs <- function(df1, df2) {
+  indf1notdf2 <- colnames(df1)[!colnames(df1) %in% colnames(df2)]
+  notindf1indf2 <- colnames(df2)[!colnames(df2) %in% colnames(df1)]
+  
+  if (length(indf1notdf2)>0) {print(paste("These columns are in df1 and NOT in df2:",paste(indf1notdf2,collapse=",")))}
+  if (length(notindf1indf2)>0) {print(paste("These columns are in df2 and NOT in df1:",paste(notindf1indf2,collapse=",")))}
+  if (colnames(df1)==colnames(df2)) {print("Column names are the same in the two tables.")}
+  
+  print(paste("Number of rows in table 1:",nrow(df1)," - and number of rows in table 2:",nrow(df2)))
+  
+  result <- list(indf1notdf2,notindf1indf2)
+  return(result)
+}
