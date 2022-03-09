@@ -128,8 +128,9 @@ wz.text <- function(str, fontsize=16, fontface="Arial",
 # insert DATAFRAME ####
 wz.dataframe <- function(df, align="center", maxrows=50, pagesize=10, 
                                  showRowNumber="FALSE", width="100%", height="60%",
-                                 title = NULL, titlefontsize=18) {
-  tilfstr <- as.character(floor(runif(1)*1000))
+                                 title = NULL, titlefontsize=18,
+                                 id = floor(runif(1,100,999))) {
+  tilfstr <- as.character(id)
   
   htmp <- paste0("google.charts.load('current', {'packages':['table']}); \n")
   htmp <- paste0(htmp,"google.charts.setOnLoadCallback(drawTable",tilfstr,"); \n")
@@ -274,10 +275,12 @@ wz.barchart <- function(df, x, group_var=NULL, num_vars, fun=c("asis","sum","mea
                         #subtitle = NULL,
                         legendposition = c("right"),
                         align="center", width="600", height="600",
-                        chart_options = NULL) {
+                        chart_options = NULL,
+                        id = floor(runif(1,100,999))) {
   library(dplyr)
   
-  tilfstr <- as.character(floor(runif(1)*1000))
+  tilfstr <- as.character(id)
+  
   fun <- fun[1]
   
   htmp <- paste0("\ngoogle.charts.load('current', {'packages':['corechart','bar']}); \n")
@@ -397,10 +400,11 @@ wz.columnchart <- function(df, x, group_var=NULL, num_vars, fun=c("asis","sum","
                            #subtitle = NULL,
                            legendposition = c("right"),
                            align="center", width="600", height="600",
-                           chart_options = NULL) {
+                           chart_options = NULL,
+                           id = floor(runif(1,100,999))) {
   library(dplyr)
   
-  tilfstr <- as.character(floor(runif(1)*1000))
+  tilfstr <- as.character(id)
   fun <- fun[1]
   
   htmp <- paste0("\ngoogle.charts.load('current', {'packages':['corechart','bar']}); \n")
@@ -492,10 +496,11 @@ wz.scatterplot <- function(df, x, y,
                                    #subtitle = NULL,
                                    legendposition = c("right"),
                                    align="left", width="700", height="600",
-                                   chart_options = NULL) {
+                                   chart_options = NULL,
+                                   id = floor(runif(1,100,999))) {
   library(dplyr)
   
-  tilfstr <- as.character(floor(runif(1)*1000))
+  tilfstr <- as.character(id)
   
   htmp <- paste0("\ngoogle.charts.load('current', {'packages':['corechart','bar']}); \n")
   htmp <- paste0(htmp,"google.charts.setOnLoadCallback(drawChart",tilfstr,"); \n")
@@ -561,10 +566,11 @@ wz.bubblechart <- function(df,
                                    titlefontsize=18,
                                    legendposition = c("right"),
                                    align="left", width="700", height="600",
-                                   chart_options = NULL) {
+                                   chart_options = NULL,
+                                   id = floor(runif(1,100,999))) {
   library(dplyr)
   
-  tilfstr <- as.character(floor(runif(1)*1000))
+  tilfstr <- as.character(id)
   
   htmp <- paste0("\ngoogle.charts.load('current', {'packages':['corechart','bar']}); \n")
   htmp <- paste0(htmp,"google.charts.setOnLoadCallback(drawChart",tilfstr,"); \n")
@@ -627,12 +633,12 @@ wz.bubblechart <- function(df,
   if (!is.null(legendposition)) {htmp <- paste0(htmp,"legend: { position: '",legendposition,"' },\n")}
   htmp <- paste0(htmp,"};\n\n")
   
-  htmp <- paste0(htmp, "var chart = new google.visualization.BubbleChart(document.getElementById('scatterplot_values",tilfstr,"'));\n")
+  htmp <- paste0(htmp, "var chart = new google.visualization.BubbleChart(document.getElementById('bubblechart_values",tilfstr,"'));\n")
   htmp <- paste0(htmp,"chart.draw(data, options);\n")
   htmp <- paste0(htmp, "}\n\n") # closing function...
   
   .wjavafuns <<- c(.wjavafuns,htmp)
-  .wcontent <<- c(.wcontent,paste0("<table align='",align,"' cellpadding=",.cellpadding,"><tr><td><div id='scatterplot_values",tilfstr,"'></div></td></tr></table><br>\n"))
+  .wcontent <<- c(.wcontent,paste0("<table align='",align,"' cellpadding=",.cellpadding,"><tr><td><div id='bubblechart_values",tilfstr,"'></div></td></tr></table><br>\n"))
 }
 
 # insert.PIECHART ####
@@ -645,10 +651,11 @@ wz.piechart <- function(df, group_var, num_var=NULL, fun=c("asis","n","sum","mea
                                 legendposition = c("right"),
                                 sliceVisibilityThreshold = 0.05,
                                 align="center", width=550, height=500,
-                                chart_options = NULL) {
+                                chart_options = NULL,
+                                id = floor(runif(1,100,999))) {
   library(dplyr)
   
-  tilfstr <- as.character(floor(runif(1)*1000))
+  tilfstr <- as.character(id)
   fun <- fun[1]
   
   # prepping data
@@ -724,11 +731,12 @@ wz.linechart <- function(df, x=NULL,
                          #subtitle = NULL,
                          legendposition = c("right"),
                          align="left", width="700", height="600",
-                         chart_options = NULL) {
+                         chart_options = NULL,
+                         id = floor(runif(1,100,999))) {
   library(dplyr)
   library(reshape2)
   
-  tilfstr <- as.character(floor(runif(1)*1000))
+  tilfstr <- as.character(id)
   fun <- fun[1]
   
   if (length(num_vars)>1 & !is.null(annotation_var)) {
@@ -910,10 +918,11 @@ wz.areachart <- function(df, x=NULL, num_vars, fun=c("asis","n","acc_n","sum","m
                                  #subtitle = NULL,
                                  legendposition = c("right"),
                                  align="left", width="700", height="600",
-                                 chart_options = NULL) {
+                                 chart_options = NULL,
+                                 id = floor(runif(1,100,999))) {
   library(dplyr)
   
-  tilfstr <- as.character(floor(runif(1)*1000))
+  tilfstr <- as.character(id)
   fun <- fun[1]
   
   if (length(num_vars)>1 & !is.null(annotation_var)) {
