@@ -1645,8 +1645,12 @@ change_coltype_to_match_other_df <- function(change_df,to_df) {
 corresp <- function(df,cat1,cat2,val,reverse=FALSE) {
   library(reshape2)
   library(ca)
-  df2 <- dcast(df, cat1 ~ cat2, value.var = "val")
-  for (v in colnames(df2)) df2[is.na(df2[,v]),v] <- 1
+  library(factoextra)
+  
+  form <- as.formula(paste(cat1,"~",cat2))
+  df2 <- dcast(df, form, value.var = val)
+  df2[is.na(df2)] <- 1
+  
   for (v in 2:ncol(df2)) df2[,v] <- as.numeric(df2[,v])
   row.names(df2) <- df2[,1]
   if (reverse == TRUE) {
@@ -1655,11 +1659,26 @@ corresp <- function(df,cat1,cat2,val,reverse=FALSE) {
   }
   df2[,1] <- NULL
   ca1 = ca(df2)
-  ca1$sv
-  plot(ca1)
-  return(ca1)
+  plot(ca1, xlim=c(-2,2),ylim=c(-2,2))
+  
+  # getting coordinates
+  row <- get_ca_row(ca1)
+  coords_rows <- data.frame(row$coord[,c(1,2)])
+  coords_rows$grp <- cat1
+  coords_rows$obj <- rownames(df2)
+  
+  col <- get_ca_col(ca1)
+  coords_cols <- data.frame(col$coord[,c(1,2)])
+  coords_cols$grp <- cat2
+  coords_cols$obj <- colnames(df2)
+  
+  coords <- rbind(coords_rows,coords_cols)
+  colnames(coords) <- c("dim1","dim2","grp","obj")
+  
+  out <- list(ca1, coords)
+  names(out) <- c("ca1","coords")
+  return(out)
 }
-
 
 stringBTMclus <- function(df,textvarname,grpname=NULL,n_clusters,avoidwords=NULL, doPDF=FALSE,pdfname=NULL) {
   #library(NLP)
