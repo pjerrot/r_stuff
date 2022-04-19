@@ -1611,7 +1611,7 @@ kmeans_score <- function(kmeans_model,df) {
   
   sql <- "select a.* "
   for (k in 1:length(kmc$size)) {
-    sql <- paste(sql,paste0(",sqrt(",paste(paste0("power((",names(kmc$centers[k,])," - ",kmc$centers[k,],"),2)"),collapse="+"),") as dist_",k))
+    sql <- paste(sql,paste0(",sqrt(",paste(paste0("power(([",names(kmc$centers[k,]),"] - ",kmc$centers[k,],"),2)"),collapse="+"),") as dist_",k))
   }
   sql <- paste(sql," from df a")
   tmp2 <- sqldf(sql)
@@ -1627,6 +1627,7 @@ kmeans_score <- function(kmeans_model,df) {
   names(out) <- c("cluster","dist","sql")
   return(out)
 }
+
 
 change_coltype_to_match_other_df <- function(change_df,to_df) {
   for (col in colnames(to_df)) {
