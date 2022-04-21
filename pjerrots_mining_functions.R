@@ -1859,7 +1859,7 @@ stringBTMclus <- function(df,textvarname,grpname=NULL,n_clusters,avoidwords=NULL
   return(out)
 }
 
-to_excelfile <- function(df, outputfile,title="outpyt") {
+to_excelfile <- function(df, outputfile,title="outpyt", overwrite=FALSE) {
   library("openxlsx")
   mywb <- createWorkbook(
     creator = "John Westberg",
@@ -1868,10 +1868,10 @@ to_excelfile <- function(df, outputfile,title="outpyt") {
     category = NULL
   )
   
-  addWorksheet(wb=mywb,sheetName=paste0("output"), zoom=120)
+  addWorksheet(wb=mywb,sheetName="output", zoom=120)
   writeDataTable(
     wb=mywb,
-    sheet=paste0("output"),
+    sheet="output",
     x=df,
     startCol = 1,
     startRow = 1,
@@ -1879,8 +1879,7 @@ to_excelfile <- function(df, outputfile,title="outpyt") {
     stack = FALSE
   )
   # Saving output data to excel ####
-  saveWorkbook(mywb, outputfile, overwrite = TRUE, returnValue = FALSE)
-  
+  saveWorkbook(mywb, outputfile, overwrite = overwrite)
 }
 
 compare_dfs <- function(df1, df2) {
