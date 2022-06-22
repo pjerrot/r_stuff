@@ -253,7 +253,7 @@ wz.wrapup <- function() {
   html <- .replace_ae_oe_aa(html)
   
   write.table(html,.wfile,row.names=FALSE,col.names=FALSE,quote=FALSE)   
-  print(paste0("Your HTML file has been saved as: ",.wfile))
+  print(paste0("Your HTML file has been saved in ",getwd()," as: ",.wfile))
   
   if (.pdfcopy==TRUE) {
     print("PDF copy is still beta.")
