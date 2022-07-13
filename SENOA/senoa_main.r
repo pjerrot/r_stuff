@@ -47,7 +47,7 @@ ctrs <- read.xlsx("/home/johnw/Documents/git/r_stuff/SENOA/estimated_CTR_by_posi
 ctrs$position <- as.numeric(ctrs$position)
 
 # serpstat token
-api_token <- "786fa52270333d18a211144ae3b14104" 
+api_token <- "...." 
 
 # setting region / marked
 regions <- c("g_us","g_uk")
@@ -311,7 +311,7 @@ save.image(paste0("ws2.RData"))
 # 24*60*60/20 = 4320 runs pr day
 
 start_time <- Sys.time()
-google_api_key <- "AIzaSyAEz_Z7xcFaTcXoGRpB2-8U-NE_1lU_sYo"
+google_api_key <- "..."
 rm(lightsout)
 i <- 0
 
