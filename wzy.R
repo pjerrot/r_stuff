@@ -35,7 +35,7 @@ wz.init <- function(title="output", file="output.html", author="",
                                                                               ifelse(color_scheme=="beach", "'#96ceb4','#ffeead','#ffcc5c','#ff6f69','#588c7e','#f2e394','#f2ae72','#d96459'",
                                                                                      ifelse(color_scheme=="google","'#4285F4','#FBBC05','#34A853','#EA4335'",
                                                                                             ifelse(color_scheme=="twitter","'#55ACEE','#292F33','#66757F','#CCD6DD','#E1E8ED','#FFFFFF'",
-                                                                                                   ifelse(color_scheme=="noac","'#28A050','#AFF0D2','#46595A','#A0D583','#142828','#808080','#BCB4A4'",
+                                                                                                   ifelse(color_scheme=="noac","'#46595A','#28A050','#A0D583','#AFF0D2','#142828','#808080','#BCB4A4'",
                                                                                                      ifelse(color_scheme=="facebook","'#3B5998','#8B9DC3','#DFE3EE','#F7F7F7','#FFFFFF'",
                                                                                                             ifelse(color_scheme=="microsoft","'#F65314','#7CBB00','#00A1F1','#FFBB00'",
                                                                                                                    ifelse(color_scheme=="manual",paste0("'",paste(color_scheme_manual_colors, collapse="','"),"'"),""))))))))))))))))
