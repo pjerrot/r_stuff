@@ -30,6 +30,7 @@ google_chrome_ux_report <- function(urls,apikey) {
   return(out_) 
 }
 
-#tst <- google_chrome_ux_report(urls = c("https://www.teamviewer.com","https://www.splashtop.com","https://www.anydesk.com"),
-#                               apikey = API_KEY)
+tst <- google_chrome_ux_report(urls = c("https://www.teamviewer.com","https://www.splashtop.com","https://www.anydesk.com"),
+                               apikey = google_api_key)
 
+url <- "https://www.teamviewer.com"
