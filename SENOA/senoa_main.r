@@ -48,12 +48,7 @@ source("https://raw.githubusercontent.com/pjerrot/r_stuff/master/pjerrots_mining
 ctrs <- read.xlsx("/home/johnw/Documents/git/r_stuff/SENOA/estimated_CTR_by_position.xlsx")
 ctrs$position <- as.numeric(ctrs$position)
 
-<<<<<<< HEAD
 
-=======
-# serpstat token
-api_token <- "...." 
->>>>>>> 715368318c55304ed652640c89ea4cfd8238b3e7
 
 # setting region / marked
 regions <- c("g_us","g_uk")
@@ -307,12 +302,6 @@ save.image(paste0("ws2.RData"))
 # 24*60*60/20 = 4320 runs pr day
 
 start_time <- Sys.time()
-<<<<<<< HEAD
-=======
-google_api_key <- "..."
-rm(lightsout)
-i <- 0
->>>>>>> 715368318c55304ed652640c89ea4cfd8238b3e7
 
 
 rm(lightsout)
