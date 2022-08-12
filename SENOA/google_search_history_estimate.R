@@ -184,10 +184,3 @@ google_search_volume_history_estimate <- function(keywords,
 
 
 ## END ####
-
-df <- interest_over_time
-x <- "date"
-num_vars <- "hits"
-group_var <- "keyword"
-fun <- "mean"
-smooth <- TRUE

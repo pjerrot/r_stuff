@@ -1,7 +1,3 @@
-#tst <- soa_serpstat_keyword_getDomainKeywords(api_token, "g_dk",
-#                                           domain = "nyheder.tv2.dk")
-
-#tstdf <- soa_serp_list_2_df(tst$data )
 
 #### functions for SENOA
 
@@ -1143,9 +1139,3 @@ soa_google_chrome_ux_report <- function(urls,apikey,friendly=TRUE) {
   return(out_) 
 }
 
-google_api_key <- "AIzaSyAEz_Z7xcFaTcXoGRpB2-8U-NE_1lU_sYo"
-google_api_key <- apikey <- "AIzaSyCzvCiB3sEN8H1APVKYbK0wzbyGYNPPwAs"
-api_response$url 
-url <- "https://www.quora.com/What-is-the-best-remote-desktop-software-for-Linux"
-
-https://chromeuxreport.googleapis.com/v1/records:queryRecord?key=AIzaSyCzvCiB3sEN8H1APVKYbK0wzbyGYNPPwAs

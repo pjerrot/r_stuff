@@ -48,8 +48,7 @@ source("https://raw.githubusercontent.com/pjerrot/r_stuff/master/pjerrots_mining
 ctrs <- read.xlsx("/home/johnw/Documents/git/r_stuff/SENOA/estimated_CTR_by_position.xlsx")
 ctrs$position <- as.numeric(ctrs$position)
 
-# serpstat token
-api_token <- "786fa52270333d18a211144ae3b14104" 
+
 
 # setting region / marked
 regions <- c("g_us","g_uk")
@@ -303,7 +302,6 @@ save.image(paste0("ws2.RData"))
 # 24*60*60/20 = 4320 runs pr day
 
 start_time <- Sys.time()
-google_api_key <- "AIzaSyCzvCiB3sEN8H1APVKYbK0wzbyGYNPPwAs"
 
 
 rm(lightsout)
@@ -380,8 +378,9 @@ output_folder <- "/home/johnw/Documents/snippets/SENOA/output_files/"
 to_excelfile(finaldata,
              paste0(output_folder,projectname,"_",market,"_",daysdate,"_output_2_finaldata.xlsx"))
 
+#finaldata <- read.xlsx("/home/johnw/Documents/snippets/SENOA/output_files/Forsikring_DK_20220805_output_2_finaldata.xlsx")
 
-# startiung modeling ####
+# starting modelling ####
 
 # Creating opponents dataset
 finaldata2 <- finaldata
@@ -405,6 +404,7 @@ modeldata1 <- sqldf(paste0("select a.*, b.* ,",difvars,",
 target <- "posdif"
 
 set.seed(2222)
+samplesize <- 200000
 samplesize <- -1
 if (samplesize==-1){
   modeldata1_sample <- modeldata1
@@ -472,7 +472,7 @@ TV.automl_posdif <- h2o.automl(
   y = Y,
   training_frame    = h2o_train,
   leaderboard_frame = h2o_test,
-  max_runtime_secs = 16 * 3600 # running number of seconds
+  max_runtime_secs = 8 * 3600 # running number of seconds
   #max_runtime_secs = 7200 # running number of seconds
   #max_runtime_secs = 3600 # running number of seconds
   #,exclude_algos = c("DeepLearning") # allow this if running for long time
