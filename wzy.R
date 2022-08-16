@@ -540,8 +540,8 @@ wz.columnchart <- function(df, x, group_var=NULL, num_vars, fun=c("asis","sum","
   htmp <- paste0(htmp,"height: ",height,",\n")
   htmp <- paste0(htmp,"colors: [",.colorstr,"],\n")
   htmp <- paste0(htmp,"titleTextStyle: {fontSize: ",titlefontsize,"},\n")
-  if (length(num_vars)==1) {htmp <- paste0(htmp,"hAxis: {title: '",gsub("asis ","",paste(fun,num_vars[1])),"'},\n")}
-  htmp <- paste0(htmp,"vAxis: {title: '",group_var,"'},\n")
+  if (length(num_vars)==1) {htmp <- paste0(htmp,"vAxis: {title: '",gsub("asis ","",paste(fun,num_vars[1])),"'},\n")}
+  htmp <- paste0(htmp,"hAxis: {title: '",x,"'},\n")
   htmp <- paste0(htmp,"bar: {groupWidth: '95%'},\n")
   htmp <- paste0(htmp,"legend: { position: '",legendposition,"' },\n")
   
@@ -568,6 +568,7 @@ wz.columnchart <- function(df, x, group_var=NULL, num_vars, fun=c("asis","sum","
   .wjavafuns <<- c(.wjavafuns,htmp)
   .wcontent <<- c(.wcontent,paste0("<table align='",align,"' cellpadding=",.cellpadding,",><tr><td><div id='barchart_values",tilfstr,"'></div></td></tr></table>\n"))
 }
+
 
 # insert.scatterplot ####
 wz.scatterplot <- function(df, x, y,
