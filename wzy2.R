@@ -392,16 +392,16 @@ wz.ggplot <- function(plot, chart_title=NULL, titlefontsize=18, width=NULL, heig
 
 # insert.COLUMNCHART ####
 wz.columnchart <- function(df, x, group_var=NULL, num_vars, fun=c("asis","sum","mean","median","sd"), 
-                           annotation_var = NULL,
-                           chart_title=NULL,
-                           stacked = FALSE,
-                           fullstacked = FALSE,
-                           titlefontsize=18,
-                           #subtitle = NULL,
-                           legendposition = c("right"),
-                           align="center", width="600", height="600",
-                           chart_options = NULL,
-                           id = floor(runif(1,100,999))) {
+         annotation_var = NULL,
+         chart_title=NULL,
+         stacked = FALSE,
+         fullstacked = FALSE,
+         titlefontsize=18,
+         #subtitle = NULL,
+         legendposition = c("right"),
+         align="center", width="600", height="600",
+         chart_options = NULL,
+         id = floor(runif(1,100,999))) {
   library(dplyr)
   
   tilfstr <- as.character(id)
@@ -416,7 +416,35 @@ wz.columnchart <- function(df, x, group_var=NULL, num_vars, fun=c("asis","sum","
   # prepping data
   if (fun=="asis") {
     df2 <- df
-  } else {
+    
+    
+    if (!is.null(group_var)) {
+      df2 <- dcast(df2,as.formula(paste0(x," ~ ",group_var)),value.var=num_vars[1])
+      # column names 
+      htmp <- paste0(htmp, paste0("['",x,"','",paste(colnames(df2)[-1],collapse="','"),"'",ifelse(!is.null(annotation_var),", { role: 'annotation' }",""),"],\n"))
+      
+      # data values
+      df2 <- data.frame(df2)
+      df2[is.na(df2)] <- 0
+      for (i in 1:nrow(df2)) {
+        htmp <- paste0(htmp, paste0("['",as.character(df2[i,x]),"',",as.character(paste(df2[i,colnames(df2)[-1]],collapse=",")),
+                                    ifelse(!is.null(annotation_var),paste0(",'",as.character(df2[i,annotation_var]),"'"),""),"]",ifelse(i==nrow(df2),"",","),"\n"))
+      }
+      
+    } else { # no group_var
+      # column names 
+      htmp <- paste0(htmp, paste0("['",x,"','",paste(num_vars,collapse="','"),"'",ifelse(!is.null(annotation_var),", { role: 'annotation' }",""),"],\n"))
+      
+      # data values
+      df2 <- data.frame(df2)
+      for (i in 1:nrow(df2)) {
+        htmp <- paste0(htmp, paste0("['",as.character(df2[i,x]),"',",as.character(paste(df2[i,num_vars],collapse=",")),
+                                    ifelse(!is.null(annotation_var),paste0(",'",as.character(df2[i,annotation_var]),"'"),""),"]",ifelse(i==nrow(df2),"",","),"\n"))
+      }
+    }
+    
+    
+  } else { # now fun<>"asis"
     df2 <- df[!is.na(df[,num_vars]),]
     if (!is.null(group_var)) {
       df2 <- df2 %>% group_by(.data[[x]],.data[[group_var]]) %>% summarise_at(.vars=na.omit(num_vars),.funs=fun)
