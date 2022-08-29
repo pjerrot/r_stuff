@@ -345,7 +345,7 @@ wz.barchart <- function(df, x, group_var=NULL, num_vars, fun=c("asis","sum","mea
       # data values
       df2 <- data.frame(df2)
       for (i in 1:nrow(df2)) {
-        htmp <- paste0(htmp, paste0("['",as.character(df2[i,group_var]),"',",as.character(paste(df2[i,num_vars],collapse=",")),
+        htmp <- paste0(htmp, paste0("['",as.character(df2[i,x]),"',",as.character(paste(df2[i,num_vars],collapse=",")),
                                     ifelse(!is.null(annotation_var),paste0(",'",as.character(df2[i,annotation_var]),"'"),""),"]",ifelse(i==nrow(df2),"",","),"\n"))
       }
     }
@@ -495,7 +495,7 @@ wz.columnchart <- function(df, x, group_var=NULL, num_vars, fun=c("asis","sum","
       # data values
       df2 <- data.frame(df2)
       for (i in 1:nrow(df2)) {
-        htmp <- paste0(htmp, paste0("['",as.character(df2[i,group_var]),"',",as.character(paste(df2[i,num_vars],collapse=",")),
+        htmp <- paste0(htmp, paste0("['",as.character(df2[i,x]),"',",as.character(paste(df2[i,num_vars],collapse=",")),
                                     ifelse(!is.null(annotation_var),paste0(",'",as.character(df2[i,annotation_var]),"'"),""),"]",ifelse(i==nrow(df2),"",","),"\n"))
       }
     }
