@@ -75,6 +75,19 @@ soa_serp_list_2_df <- function(alist) {
   return(tmpdf)
 }
 
+soa_getDomainUrls<- function (api_token, 
+                                       serpstat_region,
+                                       domain,
+                                       page = 1, 
+                                       size = 100) {
+  api_params <- list(se = as.character(serpstat_region), 
+                     domain = domain)
+  response_content <- sst_call_api_method(api_token = api_token, 
+                                          api_method = "SerpstatDomainProcedure.getDomainUrls", 
+                                          api_params = api_params)
+  sst_return_check(response_content, return_method="list")
+}
+
 soa_get_keywords <- function(keywords=NULL, 
                              domain=NULL,
                              use_serpstat=TRUE,
@@ -379,17 +392,22 @@ soa_calc_traf_est <- function(volume,pos,frompos=NULL, branded_kw=FALSE){
   return(out)
 }   
 
-sst_jw_domain_getBacklinkSummary<- function (api_token, 
+sst_jw_domain_getBacklinkSummary <- function (api_token, 
                                              se="g_us", 
                                              domain,
                                              api_method_version=2,
                                              searchType = "domain") { # or "domain_with_subdomains" 
-  api_method <- paste0("SerpstatBacklinksProcedure.getSummaryV",api_method_version)
+  
+  if (api_method_version==1){    
+    api_method <- paste0("SerpstatBacklinksProcedure.getSummary")
+  } else{  
+    api_method <- paste0("SerpstatBacklinksProcedure.getSummaryV2")
+  }
   api_params <- list(se = as.character(se), 
                      query = domain,
                      searchType=searchType)
   response_content <- sst_call_api_method(api_token = api_token, 
-                                          api_method = "SerpstatBacklinksProcedure.getSummaryV2", 
+                                          api_method = api_method, 
                                           api_params = api_params)
   sst_return_check(response_content, return_method="list")
 }
@@ -466,15 +484,18 @@ soa_get_basic_keyword_info <- function(keywords_all_df,regions, api_token) {
         sort = NULL,
         return_method = "list"
       )
-      if (exists("kws_info") & length(tmp$error)==0) {
-        tmp2 <- soa_serp_list_2_df(tmp$data )
-        tmp2$region <- region 
-        kws_info <- bind_rows(kws_info,tmp2)
-      } else {
-        kws_info <- soa_serp_list_2_df(tmp$data )
-        kws_info$region <- region 
+      if (length(tmp$error)==0) { 
+        if (exists("kws_info")) {
+          tmp2 <- soa_serp_list_2_df(tmp$data )
+          tmp2$region <- region 
+          kws_info <- bind_rows(kws_info,tmp2)
+        } else {
+          kws_info <- soa_serp_list_2_df(tmp$data )
+          kws_info$region <- region 
+        }
+      } else {  
+        if (!length(tmp$error)==0) print(paste("ERROR was thrown at ",from,to))
       }
-      if (!length(tmp$error)==0) print(paste("ERROR was thrown at ",from,to))
     }
   }
   
@@ -518,7 +539,7 @@ sst_lists_to_df <- function (lists, fill = NA)
 
 
 soa_get_toprankings <- function(kws_info, api_token, top_n=20){  
-  
+  require(serpstatr)
   if (exists("out_")) rm(out_)
   for (region in unique(kws_info$region )) { 
     i <- 0
@@ -1139,3 +1160,624 @@ soa_google_chrome_ux_report <- function(urls,apikey,friendly=TRUE) {
   return(out_) 
 }
 
+# Uploading a dataframe (df) to BigQuery ###
+senoa_bq_insert <- function(df, # dataframe
+                            BQ_table, # table on BQ
+                            dataset="seo_output",
+                            your_project_id_with_the_billing_source = "seo-rank-prediction-model",
+                            project_id_containing_the_data = "seo-rank-prediction-model") {
+  
+  require(bigrquery)  
+  
+  for (var in colnames(df)){
+    if (is.numeric(df[,var] )) df[,var] <- as.numeric(df[,var] ) 
+  } 
+  
+  bq_auth(email = "access.dk@noaconnect.com")
+  name_of_bq_table <- BQ_table
+  dataset <- "seo_output" # database (or dataset in BQ)
+  bq_table = bq_table(project = your_project_id_with_the_billing_source, 
+                      dataset = dataset, 
+                      table = name_of_bq_table)
+  bq_table_upload(x=bq_table, 
+                  values= df, 
+                  create_disposition='CREATE_IF_NEEDED', 
+                  write_disposition='WRITE_APPEND')
+  
+} 
+
+# Retrieving Lighthouse data in parallel.
+
+pagespeed_mets_parallel <- function(siteurls, api_key=api_key, 
+                                    strategy=c("both","mobile","desktop"), 
+                                    n_cores=16) { 
+  require(parallel)
+  strategy <- as.character(strategy[1])
+  start_time <- Sys.time()
+  api_key <<- api_key
+  
+  tryCatch(
+    {
+      # test each number in sample_numbers for primality
+      # create cluster object
+      cl <- makeCluster(n_cores)
+      if (exists("metout")) rm(metout) 
+      if (exists("results_mobile")) rm(results_mobile)
+      if (exists("results_desktop")) rm(results_desktop)
+      
+      if (strategy %in% c("both","mobile")) {
+        print(paste0("Running mobile - strategy=",strategy))
+        results_mobile <- parSapply(cl, siteurls, pagespeed_mets_mobile )
+        for (i in 1:length(results_mobile[3,])) {
+          if (!is.null(results_mobile[3,i][[1]]$TBT_value)){  
+            url <- results_mobile[1,i] 
+            strategy <- results_mobile[2,i]
+            mets <- results_mobile[3,][[i]] 
+            mets[sapply(mets, is.null)] <- NULL
+            tmp <- data.frame(url,strategy,t(unlist(mets)))
+            colnames(tmp)[1:2] <- c("url","strategy") 
+            if (exists("metout")) {metout <- bind_rows(metout,tmp)} else {metout <- tmp}  
+          }
+        }
+      }
+      
+      if (strategy %in% c("both","desktop")) { 
+        print(paste0("Running desktop - strategy=",strategy))
+        results_desktop <- parSapply(cl, siteurls, pagespeed_mets_desktop )
+        for (i in 1:length(results_desktop[3,])) {
+          if (!is.null(results_desktop[3,i][[1]]$TBT_value)){  
+            url <- results_desktop[1,i] 
+            strategy <- results_desktop[2,i]
+            mets <- results_desktop[3,][[i]] 
+            mets[sapply(mets, is.null)] <- NULL
+            tmp <- data.frame(url,strategy,t(unlist(mets)))
+            colnames(tmp)[1:2] <- c("url","strategy") 
+            if (exists("metout")) {metout <- bind_rows(metout,tmp)} else {metout <- tmp}  
+          }
+        }
+      }
+      
+      # close
+      stopCluster(cl)
+      
+      end_time <- Sys.time()
+      bl_time <- end_time - start_time
+      print(paste0("Getting the lighthouse data took:", bl_time))
+
+    }
+    ,
+    error=function(e) {
+    }
+  )
+  
+  if (!exists("metout")){
+    metout <- rbind(data.frame(url=siteurls,strategy="desktop"),
+                 data.frame(url=siteurls,strategy="mobile"))
+    metout[,c("TBT_value","TBT_score","CLS_value","CLS_score",       
+           "FCP_value","FCP_score","SI_value","SI_score","LCP_value","LCP_score",       
+           "TTI_value","TTI_score","Lighthouse_score")] <- NA 
+    
+  }  
+  
+  return(metout)
+  
+}
+
+
+pagespeed_mets_desktop <- function(siteurl) {
+  library(rvest)
+  library(stringr)
+  library(xml2)
+  library(httr)
+  #library("rjson")
+  
+  api_key <- as.character(read.csv("/home/johnw/Documents/snippets/ks.csv")[1,"value"])
+  strategy <- "desktop"
+  print(paste0("Running: ",siteurl))
+  
+  rawinfo <- NULL
+  rawinfo <- GET(
+    url = "https://www.googleapis.com",
+    path = "pagespeedonline/v5/runPagespeed",
+    query = list(
+      url = siteurl, 
+      strategy = strategy,
+      key = api_key))
+  
+  cont <- httr::content(rawinfo)
+  
+  # Total blocking time
+  TBT_value <- cont$lighthouseResult$audits$`total-blocking-time`$numericValue
+  TBT_score <- cont$lighthouseResult$audits$`total-blocking-time`$score
+  
+  #Cumulative Layout Shift
+  CLS_value <- cont$lighthouseResult$audits$`cumulative-layout-shift`$numericValue
+  CLS_score <- cont$lighthouseResult$audits$`cumulative-layout-shift`$score
+  
+  #First Contentful Paint
+  FCP_value <- cont$lighthouseResult$audits$`first-contentful-paint`$numericValue
+  FCP_score <- cont$lighthouseResult$audits$`first-contentful-paint`$score
+  
+  #Speed index
+  SI_value <- cont$lighthouseResult$audits$`speed-index`$numericValue
+  SI_score <- cont$lighthouseResult$audits$`speed-index`$score
+  
+  # LCP (Largest Contentful Paint)
+  LCP_value <- cont$lighthouseResult$audits$`largest-contentful-paint`$numericValue
+  LCP_score <- cont$lighthouseResult$audits$`largest-contentful-paint`$score
+  
+  # TTI (Time to interactive)
+  TTI_value <- cont$lighthouseResult$audits$interactive$numericValue
+  TTI_score <- cont$lighthouseResult$audits$interactive$score
+  
+  Lighthouse_score <- 0.1*FCP_score + 0.1*SI_score + 0.25*LCP_score + 0.1*TTI_score + 0.3*TBT_score + 0.15*CLS_score
+  
+  performance_mets <- list(TBT_value,TBT_score,CLS_value,CLS_score, FCP_value, FCP_score, SI_value, SI_score, LCP_value, LCP_score, TTI_value, TTI_score, Lighthouse_score)
+  names(performance_mets) <- c("TBT_value","TBT_score","CLS_value","CLS_score", "FCP_value", "FCP_score", "SI_value", "SI_score", "LCP_value", "LCP_score", "TTI_value", 
+                               "TTI_score", "Lighthouse_score")
+  
+  out <- list(siteurl, strategy, performance_mets)
+  names(out) <- c("siteurl","strategy", "performance_mets")
+  return(out)
+}
+
+
+pagespeed_mets_mobile <- function(siteurl) {
+  library(rvest)
+  library(stringr)
+  library(xml2)
+  library(httr)
+  #library("rjson")
+  
+  print(paste0("Running: ",siteurl))
+  
+  api_key <- as.character(read.csv("/home/johnw/Documents/snippets/ks.csv")[1,"value"])
+  strategy <- "mobile"
+  
+  rawinfo <- NULL
+  rawinfo <- GET(
+    url = "https://www.googleapis.com",
+    path = "pagespeedonline/v5/runPagespeed",
+    query = list(
+      url = siteurl, 
+      strategy = strategy,
+      key = api_key))
+  
+  cont <- httr::content(rawinfo)
+  
+  # Total blocking time
+  TBT_value <- cont$lighthouseResult$audits$`total-blocking-time`$numericValue
+  TBT_score <- cont$lighthouseResult$audits$`total-blocking-time`$score
+  
+  #Cumulative Layout Shift
+  CLS_value <- cont$lighthouseResult$audits$`cumulative-layout-shift`$numericValue
+  CLS_score <- cont$lighthouseResult$audits$`cumulative-layout-shift`$score
+  
+  #First Contentful Paint
+  FCP_value <- cont$lighthouseResult$audits$`first-contentful-paint`$numericValue
+  FCP_score <- cont$lighthouseResult$audits$`first-contentful-paint`$score
+  
+  #Speed index
+  SI_value <- cont$lighthouseResult$audits$`speed-index`$numericValue
+  SI_score <- cont$lighthouseResult$audits$`speed-index`$score
+  
+  # LCP (Largest Contentful Paint)
+  LCP_value <- cont$lighthouseResult$audits$`largest-contentful-paint`$numericValue
+  LCP_score <- cont$lighthouseResult$audits$`largest-contentful-paint`$score
+  
+  # TTI (Time to interactive)
+  TTI_value <- cont$lighthouseResult$audits$interactive$numericValue
+  TTI_score <- cont$lighthouseResult$audits$interactive$score
+  
+  Lighthouse_score <- 0.1*FCP_score + 0.1*SI_score + 0.25*LCP_score + 0.1*TTI_score + 0.3*TBT_score + 0.15*CLS_score
+  
+  performance_mets <- list(TBT_value,TBT_score,CLS_value,CLS_score, FCP_value, FCP_score, SI_value, SI_score, LCP_value, LCP_score, TTI_value, TTI_score, Lighthouse_score)
+  names(performance_mets) <- c("TBT_value","TBT_score","CLS_value","CLS_score", "FCP_value", "FCP_score", "SI_value", "SI_score", "LCP_value", "LCP_score", "TTI_value", 
+                               "TTI_score", "Lighthouse_score")
+  
+  out <- list(siteurl, strategy, performance_mets)
+  names(out) <- c("siteurl","strategy", "performance_mets")
+  return(out)
+}
+
+
+pagespeed_mets <- function(siteurl, api_key, strategy="desktop") {
+  library(rvest)
+  library(stringr)
+  library(xml2)
+  library(httr)
+  #library("rjson")
+  
+  rawinfo <- GET(
+    url = "https://www.googleapis.com",
+    path = "pagespeedonline/v5/runPagespeed",
+    query = list(
+      url = siteurl, 
+      strategy = strategy,
+      key = api_key))
+  
+  cont <- httr::content(rawinfo)
+  
+  # Total blocking time
+  TBT_value <- cont$lighthouseResult$audits$`total-blocking-time`$numericValue
+  TBT_score <- cont$lighthouseResult$audits$`total-blocking-time`$score
+  
+  #Cumulative Layout Shift
+  CLS_value <- cont$lighthouseResult$audits$`cumulative-layout-shift`$numericValue
+  CLS_score <- cont$lighthouseResult$audits$`cumulative-layout-shift`$score
+  
+  #First Contentful Paint
+  FCP_value <- cont$lighthouseResult$audits$`first-contentful-paint`$numericValue
+  FCP_score <- cont$lighthouseResult$audits$`first-contentful-paint`$score
+  
+  #Speed index
+  SI_value <- cont$lighthouseResult$audits$`speed-index`$numericValue
+  SI_score <- cont$lighthouseResult$audits$`speed-index`$score
+  
+  # LCP (Largest Contentful Paint)
+  LCP_value <- cont$lighthouseResult$audits$`largest-contentful-paint`$numericValue
+  LCP_score <- cont$lighthouseResult$audits$`largest-contentful-paint`$score
+  
+  # TTI (Time to interactive)
+  TTI_value <- cont$lighthouseResult$audits$interactive$numericValue
+  TTI_score <- cont$lighthouseResult$audits$interactive$score
+  
+  Lighthouse_score <- 0.1*FCP_score + 0.1*SI_score + 0.25*LCP_score + 0.1*TTI_score + 0.3*TBT_score + 0.15*CLS_score
+  
+  performance_mets <- list(TBT_value,TBT_score,CLS_value,CLS_score, FCP_value, FCP_score, SI_value, SI_score, LCP_value, LCP_score, TTI_value, TTI_score, Lighthouse_score)
+  names(performance_mets) <- c("TBT_value","TBT_score","CLS_value","CLS_score", "FCP_value", "FCP_score", "SI_value", "SI_score", "LCP_value", "LCP_score", "TTI_value", 
+                               "TTI_score", "Lighthouse_score")
+  loadexperience_mets <- data.frame(cont$loadingExperience$metrics)
+  
+  google_lighthouse_url <- paste0("https://googlechrome.github.io/lighthouse/scorecalc/#FCP=",FCP_value,"&SI=",SI_value,"&FMP=4000&TTI=",TTI_value,"&FCI=6500&LCP=",LCP_value,
+                                  "&TBT=",TBT_value,"&CLS=",CLS_value,"&device=",strategy,"&version=8")
+  
+  orig_loadexperience_mets <- data.frame(cont$originLoadingExperience$metrics)
+  
+  out <- list(siteurl, strategy, rawinfo,cont,loadexperience_mets,orig_loadexperience_mets, performance_mets, google_lighthouse_url)
+  names(out) <- c("siteurl","strategy","rawinfo","cont","loadexperience_mets","orig_loadexperience_mets", "performance_mets", "google_lighthouse_url")
+  return(out)
+}
+
+senoa_keyw_clustering <- function(searches, 
+                                  groupby = NULL,
+                                  method=c("btm","taxonomy"), 
+                                  title = "search_string_cluster",
+                                  excludewords = NULL,
+                                  n_clusters=12, n_super_clusters=5, 
+                                  taxonomy_file = NULL,
+                                  plot_wordclouds_clusters=TRUE, plot_wordclouds_superclusters=TRUE,
+                                  plots_to_pdf=FALSE, pdf_file= NULL, 
+                                  output_to_excel = TRUE,
+                                  output_excel_file="search_string_cluster.xlsx"){
+  
+  library(quanteda)
+  library(NLP)
+  library(tm)
+  library(RColorBrewer)
+  library(wordcloud)
+  #library(topicmodels)
+  library(SnowballC)
+  library(udpipe)
+  library(data.table)
+  library(stopwords)
+  library(BTM)
+  library(sqldf)
+  library(dplyr)
+  library(textplot)
+  library(ggraph)
+  library(concaveman)
+  library(psych)
+  library(reshape2)
+  library(ca)
+  library(stringr)
+  library(openxlsx)
+  
+  keyword <- title # just for naming of files etc.
+  method <- method[1]
+  
+  if (method=="btm") {
+    
+    #########
+    
+    # Unsupervised clustering of search strings ####
+    x2 <- data.frame(searches)
+    x2$text <- searches
+    #x2$doc_id <- ifelse(!is.null(groupby), searches[,groupby],"Nogroups")
+    x2$doc_id <- seq(1:nrow(x2))
+    avoidwords <- c(excludewords)
+    x2$text <- str_trim(gsub(paste0(avoidwords,collapse="|"),"",x2$text))
+    
+    # adding 2-grams (optional but does seem to improve clusters slightly) ####
+    train.tokens <- tokens(x2$text, what = "word", 
+                           remove_numbers = TRUE, remove_punct = TRUE,
+                           remove_symbols = TRUE)
+    train.tokens <- tokens_select(train.tokens, stopwords(), selection = "remove")
+    train.tokens <- tokens_ngrams(train.tokens, n = 1:2)
+    train.tokens.dfm <- dfm(train.tokens, tolower = FALSE)
+    x3 <- convert(train.tokens.dfm,to="data.frame")
+    novars <- c("doc_id","text","n")
+    for (j in 1:nrow(x2)) {
+      x2[j,"text2"] <- paste(unique(names(x3[j,colnames(x3)[!colnames(x3) %in% novars]])[unlist(apply(x3[j,colnames(x3)[!colnames(x3) %in% novars]], 1, function(i) which(i >0 )))]),collapse=" ")
+    }
+    x2$text <- x2$text2
+    
+    rm(anno)
+    anno    <- udpipe(x2[,c("doc_id","text")], "english", trace = 10)
+    
+    biterms <- data.table(anno)
+    biterms <- na.omit(biterms[,c("doc_id","paragraph_id","sentence_id","sentence","start","end","term_id",
+                                  "token_id","token","lemma","upos" ,"xpos","head_token_id","dep_rel")])
+    
+    # please note that below biterms has failed if 2grams are included
+    biterms <- biterms[, cooccurrence(x = lemma,
+                                      relevant = upos %in% c("NOUN", "ADJ", "VERB") & nchar(lemma) > 2 & !lemma %in% c(stopwords("en")),
+                                      skipgram = 3),
+                       by = list(doc_id)]
+    
+    set.seed(123456)
+    traindata <- subset(anno, upos %in% c("NOUN", "ADJ", "VERB") & !lemma %in% stopwords("en") & nchar(lemma) > 2)
+    traindata <- na.omit(traindata[, c("doc_id", "lemma")])
+    model     <- BTM(traindata, biterms = biterms, k = n_clusters, iter = 2000, background = TRUE, trace = 100)
+    
+    # Identifying most important terms in each cluster ####
+    ord <- terms(model, top_n=30)
+    orddf <- ord[[1]]
+    orddf$cluster <- 1
+    for (i in 2:length(ord)) {
+      orddf0 <- ord[[i]]
+      orddf0$cluster <- i
+      orddf <- rbind(orddf,orddf0)
+    }
+    orddf <- orddf[order(orddf$cluster,-orddf$probability),]
+    
+    # Using the 2 most important words in cluster as label for cluster ####
+    lalbes <- terms(model,top_n=2)
+    labels <- c()
+    for (i in 1:length(lalbes)) {labels <- c(labels,paste(lalbes[[i]]$token,collapse="/"))}
+    labels <- data.frame(labels)
+    labels$cluster <- seq(nrow(labels))
+    
+    # Plotting identified clusters with labels ####
+    btmplot <- plot(model, top_n = n_clusters,
+                    title = keyword, 
+                    subtitle = paste("Clustering keywords:",keyword),
+                    labels = labels
+    )
+    plot(btmplot)
+    
+    # Predicting cluster for each search term. NOTE: REPLACES OTHER METHOD !!!!!!!!!
+    anno$id <- paste0(anno$doc_id,"_",anno$paragraph_id)
+    
+    forpred <- unique(data.frame(anno[,c("id","token")]))
+    
+    pred <- predict(object=model,newdata=forpred,type="sum_b")
+    pred <- data.frame(pred)
+    pred$cluster <- unlist(apply( pred, 1, which.max))
+    pred$id <- row.names(pred)
+    pred <- sqldf("select distinct a.*, b.sentence, c.searches 
+                from pred a 
+                left join anno b on a.id=b.id
+                left join x2 c on c.doc_id=b.doc_id")
+    pred[, "bestp"] <- apply(pred[, grep("X",colnames(pred))], 1, max)
+    
+    # Assigning cluster to all search strings ####
+    tmp <- sqldf("select distinct a.*, b.* from x2 a 
+                                join orddf b on a.text like '%' || token || '%'")
+    
+    # type 1: combined probability
+    tst <- tmp %>% group_by(text,cluster) %>% summarise(bestp = 1- prod((1-probability)))  
+    tst <- data.frame(tst)
+    
+    searchstring_cluster_assignment_unsup <- sqldf("select distinct a.*, labels 
+                                            from tst a 
+                                            join (select text, max(bestp) as maxbestp
+                                                from tst group by text) b on bestp=maxbestp and a.text=b.text
+                                            join labels c on c.cluster = a.cluster")
+    
+    searchstring_cluster_assignment_unsup <- sqldf("select distinct a.*, labels 
+                                            from pred a 
+                                            join labels c on c.cluster = a.cluster")
+    
+    searchstring_cluster_assignment_unsup <- searchstring_cluster_assignment_unsup[order(searchstring_cluster_assignment_unsup$cluster,
+                                                                                         -searchstring_cluster_assignment_unsup$bestp),]
+    #write.csv(searchstring_cluster_assignment_unsup, paste0("searchstring_cluster_assignment_unsup_",keyword,".csv"), row.names=FALSE)
+    
+    searchstring_cluster_assignment_unsup %>% group_by(cluster, labels) %>% summarise(n=n())
+    
+    #View(searchstring_cluster_assignment_unsup)
+    clusterstats <- searchstring_cluster_assignment_unsup %>% 
+      group_by(cluster,labels) %>% 
+      summarise(n = n())
+    clusterstats$freq <- clusterstats$n/sum(clusterstats$n)   
+    
+    # super clusters - through PCA ####  
+    df2 <- pred
+    df2$cluster <- paste0("c_",as.character(df2$cluster))
+    df3 <- reshape2::dcast(df2,searches ~ cluster,sum,value.var="bestp")
+    for (v in colnames(df3)) df3[is.na(df3[,v]),v] <- 0
+    fit2 <- principal(df3[,grep("c_",colnames(df3),value=TRUE)], 
+                      nfactors = n_super_clusters, residuals = FALSE,rotate="varimax")
+    fit2loads <- data.frame(fit2$loadings[,1:n_super_clusters])
+    fit2loads$cluster <- row.names(fit2loads)
+    fit2loads$hvilken <- apply( abs(fit2loads[,grep("RC",colnames(fit2loads),value=TRUE)]), 1, which.max)
+    fit2loads$supercluster <- colnames(fit2loads[,fit2loads$hvilken ])
+    for (i in 1:nrow(fit2loads)) {fit2loads[i,"supercluster"] <- str_split(fit2loads[i,"supercluster"],"\\.") }
+    fit2loads[,grep("hvilken",colnames(fit2loads),value=TRUE)] <- NULL
+    
+    searchstring_cluster_assignment_unsup$cluster <- paste0("c_",searchstring_cluster_assignment_unsup$cluster)
+    searchstring_cluster_assignment_unsup <- sqldf("select a.*, supercluster 
+                                                  from searchstring_cluster_assignment_unsup a
+                                                  join fit2loads b on a.cluster = b.cluster")
+    
+    grplabels <- function(labels) {paste(unique(unlist(str_split(labels,"/"))),collapse="/")}
+    superclusterlabels <- searchstring_cluster_assignment_unsup %>% 
+      group_by(supercluster) %>%
+      summarise(superclusterlabel = grplabels(labels))
+    fit2loads <- sqldf("select a.*, labels, b.superclusterlabel 
+                     from fit2loads a 
+                     join superclusterlabels b on a.supercluster=b.supercluster 
+                     left join labels c on 'c_' || c.cluster = a.cluster")
+    
+    searchstring_cluster_assignment_unsup <- sqldf("select a.*, superclusterlabel 
+                                                  from searchstring_cluster_assignment_unsup a
+                                                  left join superclusterlabels b on a.supercluster = b.supercluster")
+    
+    superclusterstats <- searchstring_cluster_assignment_unsup %>% 
+      group_by(supercluster,superclusterlabel) %>%
+      summarise(n_search_strings = n(),
+                n_clusters = length(unique(cluster)))
+    
+    # correspondance map clusters vs super clusters ####
+    df2 <- cbind(label = paste0(fit2loads$cluster,"_",fit2loads$labels),abs(fit2loads[,grep("RC",colnames(fit2loads),value=TRUE)]))
+    for (v in colnames(df2)) df2[is.na(df2[,v]),v] <- 1
+    for (v in 2:ncol(df2)) df2[,v] <- as.numeric(df2[,v])
+    row.names(df2) <- df2[,1]
+    df2[,1] <- NULL
+    ca1 = ca(df2)
+    plot(ca1, main=paste("Correspondence plot of clusters and superclusters"))
+    #plot(ca1, xlim=c(-1,1.5),ylim=c(-1.5,1.5), main=paste("Correspondence plot of",keyword,"clusters"))
+    #plot(ca1, xlim=c(-3,3),ylim=c(-3,3), main=paste("Correspondence plot of",keyword,"clusters"))
+    
+    if (plots_to_pdf==TRUE) {
+      dev.off()
+      pdf(file = pdf_file,   # The directory you want to save the file in
+          width = 9, # The width of the plot in inches
+          height = 6) # The height of the plot in inches
+      
+      # plotting model again but this time inside pdf
+      plot(model, top_n = n_clusters,
+           title = keyword, 
+           subtitle = paste("Clustering keywords:",keyword),
+           labels = labels
+      )
+    }
+    
+    if (plot_wordclouds_clusters==TRUE) {
+      for (grp in unique(searchstring_cluster_assignment_unsup$labels)) {
+        #for (grp in unique(searchstring_cluster_assignment_unsup$labels)) {
+        # Convert to tm corpus and use its API for some additional fun
+        corpus <- Corpus(VectorSource(searchstring_cluster_assignment_unsup[which(searchstring_cluster_assignment_unsup$labels==grp),"searches"]))  # Create corpus object
+        
+        # Remove English stop words. This could be greatly expanded!
+        # Don't forget the mc.cores thing
+        corpus <- tm_map(corpus, removeWords, stopwords("en"))  
+        
+        # Remove numbers. This could have been done earlier, of course.
+        corpus <- tm_map(corpus, removeNumbers, mc.cores=1)
+        
+        # Stem the words. Google if you dont understand
+        corpus <- tm_map(corpus, stemDocument)
+        
+        # Remove the stems associated with our search terms
+        corpus <- tm_map(corpus, removeWords, avoidwords)
+        
+        pal <- brewer.pal(8, "Dark2")
+        layout(matrix(c(1, 2), nrow=2), heights=c(1, 8))
+        par(mar=rep(0, 4))
+        plot.new()
+        text(x=0.5, y=0.5, paste0("Cluster: ",grp))
+        wordcloud(corpus, min.freq=2, max.words = 200, random.order = FALSE, col = pal, main="title")
+      }
+    }
+    
+    if (plots_to_pdf==TRUE) plot(ca1, main=paste("Correspondence plot of clusters and superclusters"))
+    
+    if (plot_wordclouds_superclusters==TRUE) {
+      for (grp in unique(searchstring_cluster_assignment_unsup$superclusterlabel)) {
+        #for (grp in unique(searchstring_cluster_assignment_unsup$labels)) {
+        # Convert to tm corpus and use its API for some additional fun
+        corpus <- Corpus(VectorSource(searchstring_cluster_assignment_unsup[which(searchstring_cluster_assignment_unsup$superclusterlabel==grp),"searches"]))  # Create corpus object
+        
+        # Remove English stop words. This could be greatly expanded!
+        # Don't forget the mc.cores thing
+        corpus <- tm_map(corpus, removeWords, stopwords("en"))  
+        
+        # Remove numbers. This could have been done earlier, of course.
+        corpus <- tm_map(corpus, removeNumbers, mc.cores=1)
+        
+        # Stem the words. Google if you don't understand
+        corpus <- tm_map(corpus, stemDocument)
+        
+        # Remove the stems associated with our search terms!
+        corpus <- tm_map(corpus, removeWords, avoidwords)
+        
+        pal <- brewer.pal(8, "Dark2")
+        layout(matrix(c(1, 2), nrow=2), heights=c(1, 8))
+        par(mar=rep(0, 4))
+        plot.new()
+        text(x=0.5, y=0.5, paste0("Super cluster: ",grp))
+        wordcloud(corpus, min.freq=2, max.words = 200, random.order = FALSE, col = pal, main="title")
+      }
+    }
+    if (plots_to_pdf) {dev.off()}
+    
+    if (output_to_excel==TRUE) {
+      
+      newwb <- createWorkbook(
+        creator = "John Westberg",
+        title = paste0(keyword," search study"),
+        subject = NULL,
+        category = NULL
+      )
+      
+      addWorksheet(wb=newwb,sheetName="search_strings", zoom=120)
+      writeDataTable(
+        wb=newwb,
+        sheet="search_strings",
+        x=searchstring_cluster_assignment_unsup,
+        startCol = 1,
+        startRow = 1,
+        sep = ", ",
+        stack = FALSE
+      )
+      
+      addWorksheet(wb=newwb,sheetName="words", zoom=150)
+      writeDataTable(
+        wb=newwb,
+        sheet="words",
+        x=orddf,
+        startCol = 1,
+        startRow = 1,
+        sep = ", ",
+        stack = FALSE
+      )
+      
+      addWorksheet(wb=newwb,sheetName="clusterstats", zoom=150)
+      writeDataTable(
+        wb=newwb,
+        sheet="clusterstats",
+        x=clusterstats,
+        startCol = 1,
+        startRow = 1,
+        sep = ", ",
+        stack = FALSE
+      )
+      
+      addWorksheet(wb=newwb,sheetName="superclusterstats", zoom=150)
+      writeDataTable(
+        wb=newwb,
+        sheet="superclusterstats",
+        x=superclusterstats,
+        startCol = 1,
+        startRow = 1,
+        sep = ", ",
+        stack = FALSE
+      )
+      
+      saveWorkbook(newwb, paste0(keyword,"_clustering.xlsx"), overwrite = TRUE, returnValue = FALSE)
+    } # end if write to excel
+    
+    out <- list(searchstring_cluster_assignment_unsup,
+                orddf,
+                clusterstats,
+                btmplot,
+                superclusterstats,
+                ca1)
+    names(out) <- c("searchstring_cluster_assignment","words","clusterstats","btmplot","superclusterstats","Cluster_vs_supercluster_correspondance_analysis")
+    
+  } else {
+    print("here") # if taxonomy
+  }
+  return(out)
+}

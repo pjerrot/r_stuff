@@ -19,17 +19,19 @@
 memory.limit(size = 15000)
 
 # 0: Initialize ####
-setwd("F:/snippets/SENOA")
-setwd("~/Documents/snippets/SENOA")
+#setwd("F:/snippets/SENOA")
+#setwd("~/Documents/snippets/SENOA")
+setwd("~/Documents/snippets/SENOA/output_files")
 
 rm(list = ls())
+gc()
 
 options(scipen=999)
 
 library(openxlsx)
 library(RSQLite)
 library(serpstatr)
-library("rjson")
+#library("rjson")
 library(rvest)
 library(stringr)
 library(xml2)
@@ -48,28 +50,65 @@ source("https://raw.githubusercontent.com/pjerrot/r_stuff/master/pjerrots_mining
 ctrs <- read.xlsx("/home/johnw/Documents/git/r_stuff/SENOA/estimated_CTR_by_position.xlsx")
 ctrs$position <- as.numeric(ctrs$position)
 
+# tokens
+google_api <- google_api_key <- as.character(read.csv("/home/johnw/Documents/snippets/ks.csv")[1,"value"])
+api_key <<- google_api
+serpstat_api <- api_token <- as.character(read.csv("/home/johnw/Documents/snippets/ks.csv")[2,"value"])
 
+# todaysdate
+daysdate <- gsub("-","",as.character(Sys.Date()))
+daysdate_asdate <- Sys.Date()
 
 # setting region / marked
-regions <- c("g_us","g_uk")
+regions <- c("g_uk")
 
-clientname <- "Teamviewer"
-clientdomain <- "teamviewer.com"
-projectname <- "Teamviewer"
-market <- paste(toupper(gsub("g_","",regions)),collapse="_")
+# Number of keyword clusters that should be generated
+n_keyw_clusters <- 8
 
-daysdate <- gsub("-","",as.character(Sys.Date()))
+# local client folder
+clientfolder <- "/home/johnw/Documents/kki/"
+
+# reading initial keywords
+#kws0 <- read.csv("/home/johnw/Downloads/kki_hub_keywords_raw.csv", sep=";")
+kws0 <- read.xlsx("/home/johnw/Documents/kki/KyowaKirin - Keywords.xlsx")
+colnames(kws0)[1:2] <- c("keyword","volume0") 
+kws0 <- kws0[,c("keyword","volume0") ] 
+kws0$region <- regions 
+
+#kws0b <- NULL
+#for (region in regions){
+#  tmp <- kws0
+#  tmp$region <- region 
+#  if (exists("kws0b")){kws0b <- rbind(kws0b,tmp)} else {kws0b <- tmp}   
+#}
+
+#keywords_all <- kws0b
+keywords_all <- kws0[kws0$region=="g_uk", ] 
+
+
+#kws0 <- unique(read.xlsx(paste0(clientfolder,"Digital marketing - NoaConnect agency industry.xlsx")))
+#colnames(kws0) <- c("keyword")
+
+clientname <- as.character(kws0[1,"client"])
+clientname <- "kyowakirin.com"
+clientdomain <- "kyowakirin.com"
+projectname <- as.character(kws0[1,"project"])
+projectname <- "Kyowa Kirin"
+#market <- paste(toupper(gsub("g_","",regions)),collapse="_")
+market <- regions[1] 
+search_engine <- as.character(kws0[1,"searchengine"])
+search_engine <- "Google"
+
+#clientname <- "NoA_Connect"
+#clientdomain <- "noaconnect.dk"
+#projectname <- "NoA Connect SEO audit"
+#market <- paste(toupper(gsub("g_","",regions)),collapse="_")
 
 # - end initialize 
 
 # 1: Generate keywords ####
 
 # Starting with initial set of keywords ####
-
-# Getting initial keywords ####
-kws0 <- unique(read.xlsx("TMV US Keywords.xlsx"))
-colnames(kws0) <- c("keywords")
-kws0 <- c("remote desktop")
 
 keywords_all <- soa_get_keywords(domain=clientdomain, 
                              #keywords <- kws0$keywords ,
@@ -79,31 +118,82 @@ keywords_all <- soa_get_keywords(domain=clientdomain,
                              serpstat_iterations = 1,
                              use_google_suggestions = TRUE,
                              google_suggestion_iterations = 1)
+for (var in colnames(keywords_all)) {keywords_all[,var] <- as.character(keywords_all[,var] ) } 
 
-View(keywords_all)
+# OR...:
+keywords_all <- kws0
 
+# 6: Clustering keywords into keyword clusters ####
+
+x2 <- data.frame(keyword = unique(keywords_all$keyword ))
+x2$dd <- 1
+#x2$text <- x2$keyword
+#x2$doc_id <- x2$url
+x2 <- x2[!x2$keyword %in% stopwords(),]
+
+keyw_cluster <- senoa_keyw_clustering(searches=x2$keyword,
+                                      #clientname = clientname,
+                                      method = c("btm"), # currently only BTNM
+                                      title = paste("Keyword clusters for ",clientname),
+                                      excludewords = NULL,
+                                      n_clusters = n_keyw_clusters,
+                                      plot_wordclouds_clusters = FALSE,
+                                      plots_to_pdf = FALSE,
+                                      pdf_file = NULL,
+                                      output_to_excel = FALSE,
+                                      output_excel_file = paste0(clientname,"_search_string_cluster.xlsx")) 
+
+tmp <- keyw_cluster$searchstring_cluster_assignment
+clusterout <- tmp[,c("cluster","sentence","searches","labels","supercluster","superclusterlabel")]
+#to_excelfile(clusterout,"keyw_cluster_BTM.xlsx", overwrite = TRUE)
+colnames(clusterout) <- c("cluster","sentence","keyword","labels","supercluster","superclusterlabel")
+clusterout$keyword <- as.character(clusterout$keyword) 
+clusterout$labels <- as.character(clusterout$labels) 
+
+# raw_keywords output for BQ
+raw_keywords <- sqldf("select distinct a.keyword, a.region, 
+                      cluster as keyw_cluster,
+                      labels as keyw_cluster_label,
+                      supercluster as keyw_supercluster,
+                      superclusterlabel as keyw_supercluster_label
+                      from keywords_all a
+                      left join clusterout b on a.keyword=b.keyword")
+
+raw_keywords$searchengine <- paste0(search_engine,collapse="_")
+raw_keywords$project <- projectname 
+raw_keywords$date <- daysdate
+raw_keywords$client <- clientname
+senoa_bq_insert(raw_keywords, "raw_keywords")
 
 # 2: Get basic keyword info (especially volume) (serpstat) ####
 if (exists("kws_info")) rm(kws_info)
-kws_info <- soa_get_basic_keyword_info(keywords_all,regions, api_token)
+# keywords_all er data.frame med 2 kolonner: "keyword" og "region"
+kws_info <- soa_get_basic_keyword_info(keywords_all,regions=regions, api_token)
 kws_info <- kws_info[,c("keyword","cost","difficulty","region","volume")]
 
 # 3: Remove low-volume keywords ####
 kws_info <- kws_info[kws_info$volume>1,] 
+length(unique(kws_info$keyword ))
 
 # 4: Keyword top 30 domain/url positions ####
 # takes quite a long time!
 rm(out_positions)
-
 out_positions <- soa_get_toprankings(kws_info ,api_token,top_n=20)
-
+length(unique(out_positions$keyword ))
 
 # Estimating traffic
 
-out_positions <- sqldf("select a.*, cost, difficulty, volume, ctr_branded, ctr_nonbranded 
+out_positions <- sqldf("select distinct a.*, cost, difficulty, volume, ctr_branded, ctr_nonbranded,
+                      cluster as keyw_cluster,
+                      labels as keyw_cluster_label,
+                      supercluster as keyw_supercluster,
+                      superclusterlabel as keyw_supercluster_label
                        from out_positions a
                        left join kws_info b on a.keyword=b.keyword and a.region=b.region
-                       left join ctrs c on a.position=c.position")
+                       left join ctrs c on a.position=c.position
+                       left join clusterout d on a.keyword=d.keyword
+                       ")
+out_positions <- unique(out_positions)
 
 # setting CTR=0 for position +21
 out_positions[is.na(out_positions$ctr_nonbranded),"ctr_nonbranded"] <- 0
@@ -127,7 +217,6 @@ out_positions[,"ctr_valid"] <- ifelse(out_positions[,"branding_keyword"]==1,
                                       out_positions[,"ctr_nonbranded"])
 out_positions$traffic_est <- as.numeric(as.character(out_positions$volume))*out_positions$ctr_valid/100
 
-
 tmp <- sqldf("select distinct a.*, 
              b.traffic_est - a.traffic_est as d_traffic_est_1up, 
              c.traffic_est - a.traffic_est as d_traffic_est_top
@@ -138,27 +227,45 @@ tmp[is.na(tmp$d_traffic_est_1up),"d_traffic_est_1up"] <- 0
 out_positions <- tmp
 out_positions <- unique(out_positions)
 
-colnames(out_positions)
+# raw_keywords output for BQ
+out_positions$searchengine <- paste0(search_engine,collapse="_")
+out_positions$project <- projectname 
+out_positions$date <- format(daysdate_asdate ,"%m/%d/%y") 
+out_positions$client <- clientname
+out_positions <- out_positions[,c("keyword","domain","position","url","region","date","cost","difficulty","volume",
+                                  "ctr_branded","ctr_nonbranded","keyw_cluster","keyw_cluster_label","keyw_supercluster",
+                                  "keyw_supercluster_label","branding_fuzzy_match","branding_fuzzy_match_rel",
+                                  "branding_keyword","ctr_valid","traffic_est","d_traffic_est_1up","d_traffic_est_top",
+                                  "searchengine","project","client") ] 
+for (var in colnames(out_positions)){if (is.numeric(out_positions[,var] )) out_positions[,var] <- as.numeric(out_positions[,var])}
+
+# Uploading to raw_rankings BQ table ####
+senoa_bq_insert(out_positions, "raw_rankings")
 
 
-# OUTPUT 1 ####
+#rankfails <- data.frame(kws_info$keyword[!kws_info$keyword %in% out_positions$keyword ]) 
+#colnames(rankfails) <- "keyword"
+#to_excelfile(rankfails,"KKI_rankfailed_keywords.xlsx")
 
-output_folder <- "C:\\Users\\johnw\\OneDrive - The North Alliance\\Data Science Ressources\\senoa_files\\"
+
+
+# Saving image ####
+
+#output_folder <- "C:\\Users\\johnw\\OneDrive - The North Alliance\\Data Science Ressources\\senoa_files\\"
 output_folder <- "/home/johnw/Documents/snippets/SENOA/output_files/"
-to_excelfile(out_positions[,colnames(out_positions)[!colnames(out_positions) %in% c("types","branding_fuzzy_match","branding_fuzzy_match_rel")]],
-             paste0(output_folder,projectname,"_",market,"_",daysdate,"_output_1.xlsx"))
+#to_excelfile(out_positions[,colnames(out_positions)[!colnames(out_positions) %in% c("types","branding_fuzzy_match","branding_fuzzy_match_rel")]],
+#             paste0(output_folder,projectname,"_",market,"_",daysdate,"_output_1.xlsx"))
+
+save.image(paste0(output_folder,projectname,"_",market,"_",daysdate,"_ws1.RData"))
 
 
-urltraffic_sum <- out_positions %>% group_by(url) %>% summarise(sumtraf = sum(traffic_est)) 
-
-# Reducing relevant URLs to those with minimum traffic (OBS: decided agains reducing - to have as much variance as possible in final model)
-vip_urls <- urltraffic_sum[urltraffic_sum$sumtraf>200,c("url")]
-vip_urls <- vip_urls$url
+# Reducing relevant URLs to those with minimum traffic (OBS: decided against reducing - to have as much variance as possible in final model)
+#urltraffic_sum <- out_positions %>% group_by(url) %>% summarise(sumtraf = sum(traffic_est)) 
+#vip_urls <- urltraffic_sum[urltraffic_sum$sumtraf>200,c("url")]
+#vip_urls <- vip_urls$url
 
 
 # 5 Crawl all content #### 
-
-allstrings <- unique(out_positions$keyword)
 
 # crawling the sites to locate any of the "bestwords" or search strings
 # please allow for 5-7 seconds for each site!
@@ -193,8 +300,6 @@ out$in_any_logic_all <- sign(out[,"in_url_logic_all"] + out[,"in_H1_logic_all"] 
                                out[,"in_H3_logic_all"] + out[,"in_TITLE_logic_all"] + out[,"in_DESC_logic_all"] + 
                                out[,"in_BODY_logic_all"])
 
-#grep("logic_all",colnames(out),value=TRUE)
-
 out$in_any_logic_any <- sign(out[,"in_meta_logic_any"] + out[,"in_links_logic_any"] + out[,"in_imgs_logic_any"] +
                                out[,"in_url_logic_any"] + out[,"in_H1_logic_any"] + out[,"in_H2_logic_any"] + 
                                out[,"in_H3_logic_any"] + out[,"in_TITLE_logic_any"] + out[,"in_DESC_logic_any"] + 
@@ -203,46 +308,14 @@ out$in_any_logic_any <- sign(out[,"in_meta_logic_any"] + out[,"in_links_logic_an
 content_stats_final <- out
 colnames(content_stats_final) <- paste0("content_",colnames(content_stats_final))
 
-# Imputer -1 for længde af titles - in case of missing
+# Imputer -1 for længde af titles - in case of missing OBS: THis a good idea?
 for (var in colnames(content_stats_final)) {
   content_stats_final[is.nan(content_stats_final[,var]),var] <- -1
   content_stats_final[is.na(content_stats_final[,var]),var] <- -1
 }
 
-
 rm(out)
-save.image(paste0("ws1.RData"))
-
-    # reducing to rows with keyword occuring in any of the objects
-    inany <- content_stats_final[content_stats_final$in_any_logic==1,c("keyword","url","in_any_logic")]
-    
-    kws_count <- inany %>% group_by(keyword) %>% summarise(n_dist = n())
-    
-    x2 <- inany
-    x2 <- data.frame(keyword = unique(out_positions[,"keyword"]))
-    x2$dd <- 1
-    #x2$text <- x2$keyword
-    #x2$doc_id <- x2$url
-    x2 <- x2[!x2$keyword %in% stopwords(),]
-
-
-# 6: Clustering keywords into keyword clusters ####
-n_keyw_clusters <- 7
-keyw_cluster <- seo_search_clustering(searches=x2$keyword,
-                                    clientname = clientname,
-                                    method = c("btm"), # currently only BTNM
-                                    title = paste("Keyword clusters for ",clientname),
-                                    excludewords = NULL,
-                                    n_clusters = n_keyw_clusters,
-                                    plot_wordclouds_clusters = TRUE,
-                                    plots_to_pdf = FALSE,
-                                    pdf_file = NULL,
-                                    output_to_excel = FALSE,
-                                    output_excel_file = paste0(clientname,"_search_string_cluster.xlsx")) 
-
-tmp <- keyw_cluster$searchstring_cluster_assignment
-clusterout <- tmp[,c("cluster","sentence","text","keyword","bestp","labels")]
-to_excelfile(clusterout,"keyw_cluster_BTM.xlsx", overwrite = TRUE)
+save.image(paste0("ws4.RData"))
 
 # 7: Clustering urls into groups ####
 n_site_clusters <- 10
@@ -266,7 +339,7 @@ start_time <- Sys.time()
 i <- 0
 noresultdoms <- c()
 for (region in unique(out_positions$region)){ 
-  for (dom in unique(out_positions[out_positions$region==region,"domain"])) {
+  for (dom in unique(out_positions[out_positions$region==region,"domain"]) ) {
     i <- i + 1
     print(paste0("Working on ",i,": ",dom, " out of ",
                  length(unique(out_positions[out_positions$region==region,"domain"]))))
@@ -285,6 +358,8 @@ for (region in unique(out_positions$region)){
   }
 }
 
+colnames(blout)
+colnames(backlink_data)
 backlink_data <- blout
 backlink_data$linktodom_ratio <- backlink_data$backlinks/(1+backlink_data$referring_domains )
 colnames(backlink_data) <- paste0("bl_",colnames(backlink_data))
@@ -292,7 +367,7 @@ rm(blout)
 end_time <- Sys.time()
 bl_time <- end_time - start_time
 
-save.image(paste0("ws2.RData"))
+save.image(paste0("ws5.RData"))
 
 
 # 9: Google Lighthouse (pagespeed) ####
@@ -301,31 +376,225 @@ save.image(paste0("ws2.RData"))
 # Tager laaaang tid! Appr. 20 secs per run! ;)
 # 24*60*60/20 = 4320 runs pr day
 
-start_time <- Sys.time()
-
-
 rm(lightsout)
 rm(out_)
-run_these_urls <- unique(out_positions[out_positions$position<21,"url"])
-run_these_urls <- paste0("https://www.",unique(out_positions[out_positions$position<21,"domain"]))
+if (exists("siteurls")) rm(siteurls)
+run_these_domains_all <- unique(out_positions[out_positions$position<21,"domain"])
+#run_these_domains_all <- run_these_domains_all[1:200] # testing!! 
 
-lightsout <- soa_google_chrome_ux_report(urls=run_these_urls,apikey=google_api_key, friendly=TRUE)
+run_these_urls_all <- paste0("https://",run_these_domains_all)
+length(unique(run_these_urls_all))
+batch_size <- 200
+batch_count <- floor(length(run_these_urls_all)/batch_size)+1
 
-lightsout <- soa_google_chrome_ux_report(urls=c("https://www.almbrand.dk","http://tryg.dk"),
-                                         apikey=google_api_key, friendly=TRUE)
-
-tst <- soa_google_chrome_ux_report(urls=c("https://sepatec.dk/billig-forsikring"),
-                                   apikey=google_api_key, friendly=TRUE)
+# mobile
+cl <- makeCluster(n_cores)
+strategy <- "mobile"
+for (i in 1:batch_count){ 
+  start <- (i-1)*batch_size + 1
+  end <- start + (batch_size-1)
+  print(paste0(start,"-",end))
   
-# retry on those that failed...
-run_these_urls2 <- run_these_urls[!run_these_urls %in% lightsout$url]
-lightsout2 <- soa_google_chrome_ux_report(urls=run_these_urls2,apikey=google_api_key, friendly=TRUE)
-lightsout <- bind_rows(lightsout,lightsout2)
-rm(lightsout2)
+  if (exists("lightsout0")) rm(lightsout0)
+  #lightsout0 <- pagespeed_mets_parallel(siteurls = unlist(as.character(na.omit((run_these_urls_all[start:end])))), 
+  #                                      api_key, 
+  #                                      strategy="mobile", n_cores=16)
+  
+  if (exists("metout")) rm(metout) 
+  if (exists("results_mobile")) rm(results_mobile)
+
+  siteurls = unlist(as.character(na.omit((run_these_urls_all[start:end]))))
+  
+  print(paste0("Running mobile - strategy=",strategy))
+  results_mobile <- parSapply(cl, siteurls, pagespeed_mets_mobile )
+  for (i in 1:length(results_mobile[3,])) {
+    if (!is.null(results_mobile[3,i][[1]]$TBT_value)){  
+      url <- results_mobile[1,i] 
+      strategy <- results_mobile[2,i]
+      mets <- results_mobile[3,][[i]] 
+      mets[sapply(mets, is.null)] <- NULL
+      tmp <- data.frame(url,strategy,t(unlist(mets)))
+      colnames(tmp)[1:2] <- c("url","strategy") 
+      if (exists("metout")) {metout <- bind_rows(metout,tmp)} else {metout <- tmp}  
+    }
+  }
+  lightsout0 <- metout
+  lightsout0$batch <- i 
+  print(paste0("I just found ",nrow(lightsout0)," new mobile measurements!"))
+  if (exists("lightsout")){lightsout <- rbind(lightsout,lightsout0)} else {lightsout <- lightsout0}   
+}
+stopCluster(cl)
+
+# desktop
+cl <- makeCluster(n_cores)
+strategy <- "desktop"
+for (i in 1:batch_count){ 
+  start <- (i-1)*batch_size + 1
+  end <- start + (batch_size-1)
+  print(paste0(start,"-",end))
+  if (exists("lightsout0")) rm(lightsout0)
+  #lightsout0 <- pagespeed_mets_parallel(siteurls = unlist(as.character(na.omit((run_these_urls_all[start:end])))), api_key, 
+  #                                      strategy="desktop", n_cores=16)
+  
+  if (exists("metout")) rm(metout) 
+  if (exists("results_desktop")) rm(results_desktop)
+  
+  siteurls = unlist(as.character(na.omit((run_these_urls_all[start:end]))))
+  
+  print(paste0("Running desktop - strategy=",strategy))
+  results_desktop <- parSapply(cl, siteurls, pagespeed_mets_desktop )
+  for (i in 1:length(results_desktop[3,])) {
+    if (!is.null(results_desktop[3,i][[1]]$TBT_value)){  
+      url <- results_desktop[1,i] 
+      strategy <- results_desktop[2,i]
+      mets <- results_desktop[3,][[i]] 
+      mets[sapply(mets, is.null)] <- NULL
+      tmp <- data.frame(url,strategy,t(unlist(mets)))
+      colnames(tmp)[1:2] <- c("url","strategy") 
+      if (exists("metout")) {metout <- bind_rows(metout,tmp)} else {metout <- tmp}  
+    }
+  }
+  lightsout0 <- metout
+  
+  lightsout0$batch <- i 
+  print(paste0("I just found ",nrow(lightsout0)," new desktop measurements!"))
+  if (exists("lightsout")){lightsout <- rbind(lightsout,lightsout0)} else {lightsout <- lightsout0}   
+}
+stopCluster(cl)
+
+lightsout$domain <- gsub("https://","",lightsout$url ) 
+
+
+# lightsout <- pagespeed_mets_parallel(siteurls = run_these_urls[1000:1200], api_key, n_cores=16)  
+save.image(paste0("ws5.RData"))
+
+#catchup on not captured urls *2
+# Mobile
+cl <- makeCluster(n_cores)
+strategy <- "mobile"
+
+for (j in 1:2){  
+  run_these_domains <- run_these_domains_all[!run_these_domains_all %in% 
+                                               unique(lightsout[lightsout$strategy=="mobile","domain"]  )] 
+  run_these_urls_all2 <- paste0("https://www.",run_these_domains)
+  length(run_these_urls_all2) 
+  batch_size <- 200
+  (batch_count <- floor(length(run_these_urls_all2)/batch_size)+1)
+  for (k in 1:batch_count){ 
+    start <- (k-1)*batch_size + 1
+    end <- start + (batch_size-1)
+    print(paste0(start,"-",end))
+    
+    if (exists("lightsout0")) rm(lightsout0)
+    if (exists("metout")) rm(metout) 
+    if (exists("results_mobile")) rm(results_mobile)
+    
+    siteurls = unlist(as.character(na.omit((run_these_urls_all2[start:end]))))
+    
+    print(paste0("Running mobile - strategy=",strategy))
+    results_mobile <- parSapply(cl, siteurls, pagespeed_mets_mobile )
+    for (i in 1:length(results_mobile[3,])) {
+      if (!is.null(results_mobile[3,i][[1]]$TBT_value)){  
+        url <- results_mobile[1,i] 
+        strategy <- results_mobile[2,i]
+        mets <- results_mobile[3,][[i]] 
+        mets[sapply(mets, is.null)] <- NULL
+        tmp <- data.frame(url,strategy,t(unlist(mets)))
+        colnames(tmp)[1:2] <- c("url","strategy") 
+        if (exists("metout")) {metout <- bind_rows(metout,tmp)} else {metout <- tmp}  
+      }
+    }
+    
+    if (exists("metout")) { 
+      lightsout0 <- metout
+      lightsout0$batch <- i 
+      lightsout0$domain <- gsub("https://www.","",lightsout0$url ) 
+      
+      print(paste0("I just found ",nrow(lightsout0)," new mobile measurements!"))
+      if (exists("lightsout")){lightsout <- rbind(lightsout,lightsout0)} else {lightsout <- lightsout0}  
+    }
+  }
+}
+stopCluster(cl)
+
+
+# catchup desktop
+cl <- makeCluster(n_cores)
+strategy <- "desktop"
+
+for (j in 1:2){  
+  run_these_domains <- run_these_domains_all[!run_these_domains_all %in% 
+                                               unique(lightsout[lightsout$strategy=="desktop","domain"]  )] 
+  run_these_urls_all2 <- paste0("https://www.",run_these_domains)
+  length(run_these_urls_all2) 
+  batch_size <- 200
+  (batch_count <- floor(length(run_these_urls_all2)/batch_size)+1)
+  for (k in 1:batch_count){ 
+    start <- (k-1)*batch_size + 1
+    end <- start + (batch_size-1)
+    print(paste0(start,"-",end))
+    
+    if (exists("lightsout0")) rm(lightsout0)
+    if (exists("metout")) rm(metout) 
+    if (exists("results_desktop")) rm(results_desktop)
+    
+    siteurls = unlist(as.character(na.omit((run_these_urls_all2[start:end]))))
+    
+    print(paste0("Running desktop - strategy=",strategy))
+    results_desktop <- parSapply(cl, siteurls, pagespeed_mets_desktop )
+    for (i in 1:length(results_desktop[3,])) {
+      if (!is.null(results_desktop[3,i][[1]]$TBT_value)){  
+        url <- results_desktop[1,i] 
+        strategy <- results_desktop[2,i]
+        mets <- results_desktop[3,][[i]] 
+        mets[sapply(mets, is.null)] <- NULL
+        tmp <- data.frame(url,strategy,t(unlist(mets)))
+        colnames(tmp)[1:2] <- c("url","strategy") 
+        if (exists("metout")) {metout <- bind_rows(metout,tmp)} else {metout <- tmp}  
+      }
+    }
+    
+    if (exists("metout")) { 
+      lightsout0 <- metout
+      lightsout0$batch <- i 
+      lightsout0$domain <- gsub("https://www.","",lightsout0$url ) 
+      
+      print(paste0("I just found ",nrow(lightsout0)," new desktop measurements!"))
+      if (exists("lightsout")){lightsout <- rbind(lightsout,lightsout0)} else {lightsout <- lightsout0}  
+    }
+  }
+}
+stopCluster(cl)
+
 colnames(lightsout) <- paste0("lh_",colnames(lightsout))
 
-save.image(paste0("ws2.RData"))
-load("ws2.RData")
+# Creating final LH dataframe
+lh_mobile <- lightsout[lightsout$lh_strategy=="mobile", ] 
+colnames(lh_mobile) <- paste0(colnames(lh_mobile),"_mobile")
+lh_mobile$lh_batch_mobile <- NULL  
+lh_desktop <- lightsout[lightsout$lh_strategy=="desktop", ] 
+colnames(lh_desktop) <- paste0(colnames(lh_desktop),"_desktop")
+lh_desktop$lh_batch_desktop <- NULL  
+lightsout_final <- sqldf("select distinct a.lh_domain_mobile as lh_domain,a.*,b.* from lh_mobile a left join lh_desktop b on lh_domain_mobile=lh_domain_desktop
+                        UNION
+                        select distinct b.lh_domain_desktop as lh_domain, a.*,b.* from lh_desktop b left join lh_mobile a 
+                          on lh_domain_mobile=lh_domain_desktop where a.lh_domain_mobile is null
+                        ")
+lightsout_final$lh_domain <- trim(lightsout_final$lh_domain)
+
+save.image(paste0("ws5.RData"))
+
+# Chrome_ux_report version 
+#lightsout <- soa_google_chrome_ux_report(urls=run_these_urls,
+#                                         apikey=google_api_key, 
+#                                         friendly=TRUE)
+
+# retry on those that failed...
+#run_these_urls2 <- run_these_urls[!run_these_urls %in% lightsout$url]
+#lightsout2 <- soa_google_chrome_ux_report(urls=run_these_urls2,apikey=google_api_key, friendly=TRUE)
+#lightsout <- bind_rows(lightsout,lightsout2)
+#rm(lightsout2)
+
 
 # 10: Build model data with content, pagespeed and backlink data. With rankdif as target ####
 
@@ -345,26 +614,31 @@ for (i in 1:ncol(out_positions_top20_tst)) {
 out_positions_top20_tst$types <- NULL 
 out_positions_top20_tst <- unique(out_positions_top20_tst)
 
+lhvars <- c("lh_domain","lh_TBT_value_mobile","lh_CLS_value_mobile","lh_FCP_value_mobile",
+"lh_SI_value_mobile","lh_LCP_value_mobile","lh_TTI_value_mobile" ,"lh_Lighthouse_score_mobile",
+"lh_TBT_value_desktop","lh_CLS_value_desktop","lh_FCP_value_desktop",
+"lh_SI_value_desktop","lh_LCP_value_desktop","lh_TTI_value_desktop","lh_Lighthouse_score_desktop")
+
 finaldata <- sqldf(paste0("select distinct a.*,
                   -- Lighthouse/pagespeed
-                  b.*, case when b.lh_url is null then 1 else 0 end as lh_miss,
+                  ",paste(lhvars,collapse=","),", case when b.lh_domain is null then 1 else 0 end as lh_miss,
                   -- Content/crawl
                   d.*, case when d.content_url is null then 1 else 0 end as content_miss,
                   -- Backlinks
                   e.*, case when e.bl_domain is null then 1 else 0 end as bl_miss
                   from out_positions_top20_tst a
-                  left join lightsout b on b.lh_url = a.url
+                  left join lightsout_final b on b.lh_domain = a.domain
                   left join content_stats_final d on d.content_url=a.url and a.keyword = d.content_keyword
                   left join backlink_data e on e.bl_domain = a.domain and a.region=bl_region
              "))
-finaldata$date <- todaysdate
+finaldata$date <- daysdate
 finaldata$project <- projectname
 
 # Creating a variable to see if google favors their own sites
 finaldata$is_google_domain <- as.numeric(grepl("google.com",finaldata$domain ))
 
 # removing non-numeric vars
-finaldata[,c("lh_url","lh_date","content_keyword","content_url","bl_domain","bl_region")] <- NULL
+finaldata[,c("lh_url","lh_date","content_keyword","content_url","bl_domain","bl_region","lh_domain")] <- NULL
 
 #checking number of missing values per var
 for (var in colnames(finaldata)) {
@@ -372,11 +646,15 @@ for (var in colnames(finaldata)) {
 }
 
 # OUTPUT 2 (finaldata df) ####
+# Uploading to raw_auditdata BQ table ####
+senoa_bq_insert(finaldata, "raw_auditdata")
+
 
 output_folder <- "C:\\Users\\johnw\\OneDrive - The North Alliance\\Data Science Ressources\\senoa_files\\"
 output_folder <- "/home/johnw/Documents/snippets/SENOA/output_files/"
 to_excelfile(finaldata,
              paste0(output_folder,projectname,"_",market,"_",daysdate,"_output_2_finaldata.xlsx"))
+save.image(paste0(output_folder,projectname,"_",market,"_",daysdate,"_ws2.RData"))
 
 #finaldata <- read.xlsx("/home/johnw/Documents/snippets/SENOA/output_files/Forsikring_DK_20220805_output_2_finaldata.xlsx")
 
@@ -398,20 +676,24 @@ modeldata1 <- sqldf(paste0("select a.*, b.* ,",difvars,",
                     -- case when a.position < b.position_u2 then 1 else 0 end as target_pos1_on_top,
                     a.position - b.position_u2 as posdif
                     from finaldata a 
-                    join finaldata2 b on a.keyword=b.keyword_u2 and a.region=b.region_u2
-                           and a.url<>b.url_u2")) # change: include 0 posdif observations
-
+                    join finaldata2 b on a.keyword=b.keyword_u2 
+                           and a.region=b.region_u2
+                           and a.url<>b.url_u2
+                           ")) # change: include 0 posdif observations
+rnrow(modeldata1)
 target <- "posdif"
 
+modeldata1 <- na.omit(modeldata1) # If remove missing data entirely
+
 set.seed(2222)
-samplesize <- 200000
+samplesize <- 150000
 samplesize <- -1
 if (samplesize==-1){
   modeldata1_sample <- modeldata1
 } else{
   modeldata1_sample <- modeldata1[order(runif(nrow(modeldata1))),][1:samplesize,]
 }  
-
+nrow(modeldata1_sample)
 
 #modeldata1 <- na.omit(modeldata1) # undecided as to whether or not to do this...
 
@@ -419,12 +701,22 @@ if (samplesize==-1){
 inputs <- grep("bl_|content_|lh_|is_google",colnames(modeldata1_sample),value=TRUE)
 inputs <- inputs[!inputs %in% c("domain_prev_date", "domain_u2", "subdomain_u2", "domain_prev_date_u2")]
 
+
 # reducing modeldataset to only modeling related variables
 modeldata_lh_sample <- modeldata1_sample[,unique(c(inputs,target))]
+
+# ensuring variables are numeric - if they should be...
+for (var in colnames(modeldata_lh_sample)) {
+  if (is.character(modeldata_lh_sample[,var] ) & !var %in% c("region")) { 
+    print(var)
+    modeldata_lh_sample[,var]  <- as.numeric(modeldata_lh_sample[,var] )
+  } 
+}
 
 # removing categorical variables with many distinct values (if any)
 for (var in colnames(modeldata_lh_sample)) {
   if (is.character(modeldata_lh_sample[,var]) & length(unique(modeldata_lh_sample[,var]))>50) {
+    print(paste("Removing: ",var))
     inputs <- inputs[!inputs %in% var]
   }
 }
@@ -440,7 +732,8 @@ for (var in colnames(modeldata_lh_sample)) {
 # just checking that there are no factor vars
 for (var in colnames(modeldata_lh_sample)) if (is.factor(modeldata_lh_sample[,var] )) print(var)
 
-save.image("ws3.RData")
+save.image(paste0(output_folder,projectname,"_",market,"_",daysdate,"_ws3.RData"))
+save.image(paste0("ws6.RData"))
 
 # Builing model####
 # h2o model
@@ -472,7 +765,7 @@ TV.automl_posdif <- h2o.automl(
   y = Y,
   training_frame    = h2o_train,
   leaderboard_frame = h2o_test,
-  max_runtime_secs = 8 * 3600 # running number of seconds
+  max_runtime_secs = 2 * 3600 # running number of seconds
   #max_runtime_secs = 7200 # running number of seconds
   #max_runtime_secs = 3600 # running number of seconds
   #,exclude_algos = c("DeepLearning") # allow this if running for long time
@@ -489,7 +782,6 @@ train_perf <- h2o.performance(automl_leader,h2o_train) #performance
 train_perf@metrics$r2   
 # saving model for later use
 model_path <- h2o.saveModel(object=picked_model_dif, path=getwd(), force=TRUE)
-
 
 # Pick non-StackedEnsemble model (for varimp)
 non_stacked_ensemble_mod_id <- lb$model_id[!grepl("Stacked",lb$model_id)]  
