@@ -42,6 +42,7 @@ library(dplyr)
 library(quanteda)
 library(R.utils)
 library(h2o)
+library(parallel)
 
 source("/home/johnw/Documents/git/r_stuff/SENOA/senoa_functions.r")
 source("https://raw.githubusercontent.com/pjerrot/r_stuff/master/pjerrots_mining_functions.R")
@@ -65,15 +66,43 @@ regions <- c("g_uk")
 # Number of keyword clusters that should be generated
 n_keyw_clusters <- 8
 
+# Run on number of parallel cores
+n_cores <- 16
+
 # local client folder
 clientfolder <- "/home/johnw/Documents/kki/"
 
 # reading initial keywords
 #kws0 <- read.csv("/home/johnw/Downloads/kki_hub_keywords_raw.csv", sep=";")
-kws0 <- read.xlsx("/home/johnw/Documents/kki/KyowaKirin - Keywords.xlsx")
-colnames(kws0)[1:2] <- c("keyword","volume0") 
-kws0 <- kws0[,c("keyword","volume0") ] 
+#kws0 <- read.xlsx("/home/johnw/Documents/kki/KyowaKirin - Keywords.xlsx")
+
+kws0 <- read.xlsx("/home/johnw/Documents/kki/Copy of KKI - Keyword to URL.xlsx", sheet="Match")
+colnames(kws0)[1:2] <- c("keyword","url") 
+kws0 <- kws0[,c("keyword","url") ] 
 kws0$region <- regions 
+market <- regions[1] 
+
+### TEAMVIEWER RUN
+regions <- c("g_us")
+clientfolder <- "/home/johnw/Documents/Teamviewer/"
+clientname <- "Teamviewer"
+clientdomain <- "teamviewer.com"
+projectname <- "Teamviewer"
+market <- regions[1] 
+daysdate <- gsub("-","",as.character(Sys.Date()))
+
+# - end initialize 
+
+# 1: Generate keywords ####
+# Starting with initial set of keywords ####
+
+# Getting initial keywords ####
+kws <- unique(read.xlsx("/home/johnw/Documents/Teamviewer/TMV US Keywords.xlsx"))
+colnames(kws) <- c("keyword")
+kws$region <- "g_us" 
+keywords_all <- kws
+n_keyw_clusters <- 7
+# END TEAMVIEWER specs
 
 #kws0b <- NULL
 #for (region in regions){
@@ -150,7 +179,7 @@ colnames(clusterout) <- c("cluster","sentence","keyword","labels","supercluster"
 clusterout$keyword <- as.character(clusterout$keyword) 
 clusterout$labels <- as.character(clusterout$labels) 
 
-# raw_keywords output for BQ
+# BQ "raw_keywords" output####
 raw_keywords <- sqldf("select distinct a.keyword, a.region, 
                       cluster as keyw_cluster,
                       labels as keyw_cluster_label,
@@ -165,6 +194,8 @@ raw_keywords$date <- daysdate
 raw_keywords$client <- clientname
 senoa_bq_insert(raw_keywords, "raw_keywords")
 
+
+
 # 2: Get basic keyword info (especially volume) (serpstat) ####
 if (exists("kws_info")) rm(kws_info)
 # keywords_all er data.frame med 2 kolonner: "keyword" og "region"
@@ -175,7 +206,7 @@ kws_info <- kws_info[,c("keyword","cost","difficulty","region","volume")]
 kws_info <- kws_info[kws_info$volume>1,] 
 length(unique(kws_info$keyword ))
 
-# 4: Keyword top 30 domain/url positions ####
+# 4: Keyword top 20 domain/url positions ####
 # takes quite a long time!
 rm(out_positions)
 out_positions <- soa_get_toprankings(kws_info ,api_token,top_n=20)
@@ -239,7 +270,7 @@ out_positions <- out_positions[,c("keyword","domain","position","url","region","
                                   "searchengine","project","client") ] 
 for (var in colnames(out_positions)){if (is.numeric(out_positions[,var] )) out_positions[,var] <- as.numeric(out_positions[,var])}
 
-# Uploading to raw_rankings BQ table ####
+# BQ "raw_rankings"  ####
 senoa_bq_insert(out_positions, "raw_rankings")
 
 
@@ -255,7 +286,6 @@ senoa_bq_insert(out_positions, "raw_rankings")
 output_folder <- "/home/johnw/Documents/snippets/SENOA/output_files/"
 #to_excelfile(out_positions[,colnames(out_positions)[!colnames(out_positions) %in% c("types","branding_fuzzy_match","branding_fuzzy_match_rel")]],
 #             paste0(output_folder,projectname,"_",market,"_",daysdate,"_output_1.xlsx"))
-
 save.image(paste0(output_folder,projectname,"_",market,"_",daysdate,"_ws1.RData"))
 
 
@@ -263,7 +293,6 @@ save.image(paste0(output_folder,projectname,"_",market,"_",daysdate,"_ws1.RData"
 #urltraffic_sum <- out_positions %>% group_by(url) %>% summarise(sumtraf = sum(traffic_est)) 
 #vip_urls <- urltraffic_sum[urltraffic_sum$sumtraf>200,c("url")]
 #vip_urls <- vip_urls$url
-
 
 # 5 Crawl all content #### 
 
@@ -280,6 +309,8 @@ length(urls)
 for (i in 1:length(urls)) {
   print(paste("crawling number ",i,"out of ",length(urls),": ",urls[i]))
   kws <- unique(out_positions[out_positions$url==urls[i],"keyword"  ] )
+  # SLET NEDENSTående linje
+  kws <- as.character(na.omit(unique(keywords_all_hub[keywords_all_hub$url==urls[i],"keyword"  ] ))) #SLET!!!
   tryCatch(
     {
       tst <- withTimeout({
@@ -317,16 +348,16 @@ for (var in colnames(content_stats_final)) {
 rm(out)
 save.image(paste0("ws4.RData"))
 
-# 7: Clustering urls into groups ####
-n_site_clusters <- 10
+# 7: Clustering urls into groups ###
+#n_site_clusters <- 10
 #tmp <- x2[x2$keyword %in% bestwords,]
 #tst <- dcast(x2[x2$keyword %in% bestwords,], url ~ keyword, fun.aggregate=length, value.var="in_any_logic")
-tst <- dcast(x2, url ~ keyword, fun.aggregate=length, value.var="in_any_logic")
-kmeans_urls <- kmeans(tst[,-1],n_site_clusters)
-kmeans_urls$size
-urls_w_cluster <- data.frame(cbind(url = tst$url, url_cluster=kmeans_urls$cluster))
+#tst <- dcast(x2, url ~ keyword, fun.aggregate=length, value.var="in_any_logic")
+#kmeans_urls <- kmeans(tst[,-1],n_site_clusters)
+#kmeans_urls$size
+#urls_w_cluster <- data.frame(cbind(url = tst$url, url_cluster=kmeans_urls$cluster))
 
-View(urls_w_cluster[grep(clientdomain,urls_w_cluster$url),])
+#View(urls_w_cluster[grep(clientdomain,urls_w_cluster$url),])
 
 
 
@@ -346,7 +377,7 @@ for (region in unique(out_positions$region)){
     tst <- sst_jw_domain_getBacklinkSummary(api_token=api_token,
                                             se=region,
                                             domain=dom,
-                                            api_method_version = 1,
+                                            api_method_version = 2,
                                             searchType = "domain_with_subdomains") # or "domain"
     if (length(tst$error)==0) {
       tst2 <- data.frame(domain=dom,region=region,tst$data)
@@ -361,8 +392,9 @@ for (region in unique(out_positions$region)){
 colnames(blout)
 colnames(backlink_data)
 backlink_data <- blout
-backlink_data$linktodom_ratio <- backlink_data$backlinks/(1+backlink_data$referring_domains )
 colnames(backlink_data) <- paste0("bl_",colnames(backlink_data))
+backlink_data$linktodom_ratio <- backlink_data$backlinks/(1+backlink_data$referring_domains )
+
 rm(blout)
 end_time <- Sys.time()
 bl_time <- end_time - start_time
@@ -596,9 +628,7 @@ save.image(paste0("ws5.RData"))
 #rm(lightsout2)
 
 
-# 10: Build model data with content, pagespeed and backlink data. With rankdif as target ####
-
-# Samler salaten til model data ####
+# 10: Modeldata with content, pagespeed and backlink data. With rankdif as target ####
 
 #Content: content_stats_final
 #Backlinks: backlink_data
@@ -613,6 +643,23 @@ for (i in 1:ncol(out_positions_top20_tst)) {
 # OBS: find ud af hvorfor der er dubletter i out_position_top20...!!!
 out_positions_top20_tst$types <- NULL 
 out_positions_top20_tst <- unique(out_positions_top20_tst)
+
+paste(colnames(out_positions_top20_tst),collapse=",a.")
+
+
+out_positions_top20_tst_b <- sqldf("select 
+a.keyword,
+case when b.url is not null then 'kyowakirinhub.com' else a.domain end as domain,
+a.position,
+case when b.url is not null then b.url else a.url end as url,
+a.region,a.date,a.cost,a.difficulty,a.volume,a.ctr_branded,
+a.ctr_nonbranded,a.keyw_cluster,a.keyw_cluster_label,a.keyw_supercluster,a.keyw_supercluster_label,
+a.branding_fuzzy_match,a.branding_fuzzy_match_rel,a.branding_keyword,a.ctr_valid,a.traffic_est,
+a.d_traffic_est_1up,a.d_traffic_est_top,a.searchengine,a.project,a.client
+from out_positions_top20_tst a
+left join keywords_all_hub b on a.keyword=b.keyword and a.position=20
+                                   ")
+out_positions_top20_tst <- out_positions_top20_tst_b
 
 lhvars <- c("lh_domain","lh_TBT_value_mobile","lh_CLS_value_mobile","lh_FCP_value_mobile",
 "lh_SI_value_mobile","lh_LCP_value_mobile","lh_TTI_value_mobile" ,"lh_Lighthouse_score_mobile",
@@ -630,6 +677,7 @@ finaldata <- sqldf(paste0("select distinct a.*,
                   left join lightsout_final b on b.lh_domain = a.domain
                   left join content_stats_final d on d.content_url=a.url and a.keyword = d.content_keyword
                   left join backlink_data e on e.bl_domain = a.domain and a.region=bl_region
+                  where a.volume > 169
              "))
 finaldata$date <- daysdate
 finaldata$project <- projectname
@@ -645,10 +693,8 @@ for (var in colnames(finaldata)) {
   print(paste(var,":",length(which(is.na(finaldata[,var])))))
 }
 
-# OUTPUT 2 (finaldata df) ####
-# Uploading to raw_auditdata BQ table ####
+# BQ raw_auditdata upload ####
 senoa_bq_insert(finaldata, "raw_auditdata")
-
 
 output_folder <- "C:\\Users\\johnw\\OneDrive - The North Alliance\\Data Science Ressources\\senoa_files\\"
 output_folder <- "/home/johnw/Documents/snippets/SENOA/output_files/"
@@ -658,7 +704,7 @@ save.image(paste0(output_folder,projectname,"_",market,"_",daysdate,"_ws2.RData"
 
 #finaldata <- read.xlsx("/home/johnw/Documents/snippets/SENOA/output_files/Forsikring_DK_20220805_output_2_finaldata.xlsx")
 
-# starting modelling ####
+# Start modelling ####
 
 # Creating opponents dataset
 finaldata2 <- finaldata
@@ -680,7 +726,7 @@ modeldata1 <- sqldf(paste0("select a.*, b.* ,",difvars,",
                            and a.region=b.region_u2
                            and a.url<>b.url_u2
                            ")) # change: include 0 posdif observations
-rnrow(modeldata1)
+nrow(modeldata1)
 target <- "posdif"
 
 modeldata1 <- na.omit(modeldata1) # If remove missing data entirely
@@ -700,7 +746,6 @@ nrow(modeldata1_sample)
 # IDENTIFYING INPUT VARIABLES AS ALL VARIABLES RELATED TO BACKLINK, CONTENT AND LIGHTHOUSE
 inputs <- grep("bl_|content_|lh_|is_google",colnames(modeldata1_sample),value=TRUE)
 inputs <- inputs[!inputs %in% c("domain_prev_date", "domain_u2", "subdomain_u2", "domain_prev_date_u2")]
-
 
 # reducing modeldataset to only modeling related variables
 modeldata_lh_sample <- modeldata1_sample[,unique(c(inputs,target))]
@@ -735,7 +780,7 @@ for (var in colnames(modeldata_lh_sample)) if (is.factor(modeldata_lh_sample[,va
 save.image(paste0(output_folder,projectname,"_",market,"_",daysdate,"_ws3.RData"))
 save.image(paste0("ws6.RData"))
 
-# Builing model####
+# Building model####
 # h2o model
 
 #install.packages("h2o")
@@ -765,7 +810,7 @@ TV.automl_posdif <- h2o.automl(
   y = Y,
   training_frame    = h2o_train,
   leaderboard_frame = h2o_test,
-  max_runtime_secs = 2 * 3600 # running number of seconds
+  max_runtime_secs = 48 * 3600 # running number of seconds
   #max_runtime_secs = 7200 # running number of seconds
   #max_runtime_secs = 3600 # running number of seconds
   #,exclude_algos = c("DeepLearning") # allow this if running for long time
@@ -791,20 +836,52 @@ test_perf_non_stacked <- h2o.performance(non_stacked_ensemble_mod,h2o_test) #per
 test_perf_non_stacked@metrics$r2  
 # saving model for later use
 model_path <- h2o.saveModel(object=non_stacked_ensemble_mod, path=getwd(), force=TRUE)
+to_excelfile(varimps_posdif,paste0("varimp_",non_stacked_ensemble_mod_id[1],".xlsx"))
+
+# BQ saving varimp ####
+varimps_posdif$searchengine <- paste0(search_engine,collapse="_")
+varimps_posdif$project <- projectname 
+varimps_posdif$date <- format(daysdate_asdate ,"%m/%d/%y") 
+varimps_posdif$client <- clientname
+varimps_posdif$modelid <- non_stacked_ensemble_mod_id[1]
+varimps_posdif <- as.data.frame(varimps_posdif[,c("variable","relative_importance","scaled_importance",
+                                               "percentage","searchengine","project","client","modelid","date")] )
+senoa_bq_insert(varimps_posdif, "model_varimp")
+
+# Saving all models from leaderboard
+setwd("/home/johnw/Documents/snippets/SENOA/output_files/models/")
+r2s <- data.frame(modelid=character(),r2=character(),stringsAsFactors = FALSE)
+for (i in 1:nrow(lb)) {
+  mod_id <- lb$model_id[i]  
+  mod <- h2o.getModel(mod_id ) 
+  test_perf_non_stacked <- h2o.performance(mod,h2o_test) #performance
+  print(paste0(mod_id," - r2:",test_perf_non_stacked@metrics$r2))  
+  r2s[i,c("modelid","r2")] <- c(mod_id,test_perf_non_stacked@metrics$r2) 
+  # saving model for later use
+  #model_path <- h2o.saveModel(object=mod, path=getwd(), force=TRUE)
+} 
+r2s$r2 <- as.numeric(r2s$r2 ) 
+r2s0 <- read.xlsx("model_r2s.xlsx")
+r2s <- rbind(r2s0,r2s)
+to_excelfile(r2s,"model_r2s.xlsx", overwrite=TRUE)
+setwd("/home/johnw/Documents/snippets/SENOA/output_files/")
 
 #sender varimps til excel
 to_excelfile(varimps_posdif[-grep("_u2|_dif",varimps_posdif$variable),],
              paste0("variable_omportance",non_stacked_ensemble_mod_id[1],".xlsx"), overwrite = TRUE)
 
-
 # load the model
 # best so far (I think) !!
 #saved_model <- h2o.loadModel("XGBoost_grid__1_AutoML_20220731_093639_model_1")
 
-picked_model_dif <- h2o.getModel("XGBoost_grid__1_AutoML_20220801_132849_model_1") 
+saved_model <- h2o.loadModel("models/StackedEnsemble_AllModels_AutoML_20220907_175256")
+#picked_model_dif <- h2o.getModel("StackedEnsemble_AllModels_AutoML_20220907_175256") 
+picked_model_dif <- saved_model
 
 # Gemmer scores i DF for det komplette datas?t
-scores_posdif <- as.data.frame(h2o.predict(object=picked_model_dif,newdata=h2o_df, type="response"))
+scores_posdif <- as.data.frame(h2o.predict(object=picked_model_dif,
+                                           newdata=h2o_df, 
+                                           type="response"))
 
 # Hæfter scores på modeldata1
 colnames(scores_posdif)[1] <- "posdif_predict"
@@ -817,6 +894,10 @@ modeldata1_sample <- modeldata1_sample[modeldata1_sample$position<21 & modeldata
 mms <- modmetrics(modeldata1_sample[,target],modeldata1_sample$posdif_predict)
 mms$r2
 
+mms <- modmetrics(modeldata1_sample[modeldata1_sample$volume>170,target],
+                  modeldata1_sample[modeldata1_sample$volume>170,"posdif_predict"])
+mms$r2
+ 
 # Calculating final ranking ####
 rm(matchscoresout0)
 
@@ -855,6 +936,13 @@ matchscores_dif_final$abs_error <- abs(matchscores_dif_final$position - matchsco
 mean(matchscores_dif_final$abs_error)
 modmetrics(matchscores_dif_final$position,matchscores_dif_final$rankscore)$r2
 
+matchscores_dif_final$searchengine <- paste0(search_engine,collapse="_")
+matchscores_dif_final$project <- projectname 
+matchscores_dif_final$date <- format(daysdate_asdate ,"%m/%d/%y") 
+matchscores_dif_final$client <- clientname
+matchscores_dif_final$market <- gsub("g_","",matchscores_dif_final$region )
+senoa_bq_insert(matchscores_dif_final, "model_rank_prediction")
+
 
 # Precision stats ####
 # almost exact
@@ -881,21 +969,12 @@ to_excelfile(confusiondf,"model_confusion.xlsx", overwrite = TRUE)
 to_excelfile(matchscores_dif_final,"ranking_matchscores.xlsx",overwrite=TRUE)
 
 # SIMULATION ###################################################################################################################
-# Simulating to find optimal value set of variables - to beat better ranked sites on same keyword
-##_##################################################################################################################
+# Simulating to find optimal value set of variables - to beat better ranked (#1) sites on same keyword
 
-# FINDING OPTIMAL VALUESET
-# Save as-is df
+# FINDING OPTIMAL VALUE-SET
 # Save as-is df for client pages: BASELINE set
 # Using position 1 as GOAL set!! (earlier simulations have tried "free flowing" values but that didnt work)
 # Calculate scores for BASELINE, GOAL set - and for each partial variable change (from baseline to goal value)
-
-#_###################################################################################################################
-
-# OBS: IMPORTANT: THE MODEL SHOULD ONLY USE ACTUAL GOOGLE LIGHTHOUSE MEASUREMENTS - AND NOT THE SCORES SINCE THEY ARE LINEAR TRANSFORMATIONS THEREOF
-
-#_###################################################################################################################
-
 # As-is df is 'finaldata' df !!!  ####
 
 # Save as-is df for client pages: BASELINE set ####
@@ -904,15 +983,15 @@ singleinputs <- inputs[-grep("_u2|_dif",inputs)]
 sim_baseline_df <- unique(finaldata[finaldata$domain==clientdomain, c("keyword","domain","position","url" ,"date","project","region","cost",
                                                                       "difficulty","volume","ctr_valid","traffic_est","d_traffic_est_1up","d_traffic_est_top",singleinputs)]  )
 
-finaldata_sim <- finaldata[finaldata$domain==clientdomain,]
+finaldata_sim <- finaldata[finaldata$domain==clientdomain,] # Baseline dataset - as values are on client pages now
 finaldata_sim$changevar <- "BASELINE" 
 tmp <- finaldata[finaldata$position==1,]
 tmp$changevar <- "GOAL" 
 finaldata_sim <- rbind(finaldata_sim,tmp)
 
-# Changing one variable at a time and adding to finaldata_sim df...
-for (reg in unique(sim_baseline_df$region )){  
-  for (kw in unique(finaldata_sim[finaldata_sim$changevar=="BASELINE" & finaldata_sim$region==reg,"keyword" ])){
+# Changing one specific variable at a time and adding (rbind'ing) to finaldata_sim df...
+for (reg in unique(sim_baseline_df$region)){  
+  for (kw in unique(finaldata_sim[finaldata_sim$changevar=="BASELINE" & finaldata_sim$region==reg,"keyword"])){
     goalset <- finaldata_sim[finaldata_sim$changevar=="GOAL" & finaldata_sim$keyword==kw & finaldata_sim$region==reg,] 
     baselineset <- finaldata_sim[finaldata_sim$changevar=="BASELINE" & finaldata_sim$keyword==kw & finaldata_sim$region==reg,] 
     for (var in singleinputs){
@@ -924,15 +1003,14 @@ for (reg in unique(sim_baseline_df$region )){
   }  
 }
 
-
 # Competition url is only position 1 url: GOAL
 finaldata2_sim <- finaldata_sim[finaldata_sim$changevar== "GOAL", ] 
 colnames(finaldata2_sim) <- paste0(colnames(finaldata2_sim),"_u2")
 
-# Creating string for difvars calculation. May be removed in the future if models are created without
+# Creating string for difvars calculation. 
 difvars <- c()
 #vars0 <- grep("backlink_|domain_|content_|lighthouse_",colnames(finaldata),value=TRUE)
-vars0 <- grep("backlink_|content_|lighthouse_",colnames(finaldata),value=TRUE)
+vars0 <- grep("bl_|content_|lh_",colnames(finaldata),value=TRUE)
 for (var in vars0) {
   difvars <- c(difvars,paste0("a.",var," - b.",var,"_u2 as ",var,"_dif"))
 }
@@ -956,22 +1034,29 @@ library(h2o)
 
 h2o.init(ip = 'localhost', port = 4321, nthreads= -1, max_mem_size = "6g")
 
-usethismodel <- "XGBoost_grid__1_AutoML_20220731_093639_model_1"
-saved_model <- h2o.loadModel(usethismodel)
+usethismodel <- "StackedEnsemble_AllModels_AutoML_20220907_175256"
+saved_model <- picked_model_dif
 
 h2o_df_sim <- as.h2o(modeldata1_sim, id="modeldata1_sim")
 
 scores_posdif_sim <- as.data.frame(h2o.predict(object=saved_model,newdata=h2o_df_sim, type="response"))
 modeldata1_sim <- cbind(modeldata1_sim,scores_posdif_sim)
+View(modeldata1_sim)
+
 
 # Building output dataset ####
 
-out2 <- sqldf("select distinct a.keyword, c.domain, a.position, a.url, c.date, c.project, c.market, c.volume, c.traffic_est,
-                c.d_traffic_est_1up, c.d_traffic_est_top,c.domain_name, c.keyw_cluster_label, a.changevar as variable,
+out2 <- sqldf("select distinct a.keyword, c.domain, a.position, a.url, c.date, c.project, 
+--c.market, 
+c.volume, 
+c.traffic_est,
+                c.d_traffic_est_1up, c.d_traffic_est_top,
+--                c.domain_name, 
+                c.keyw_cluster_label, a.changevar as variable,
                 case
-                  when a.changevar like '%content%' then 'Content'
-                  when a.changevar like '%lighth%' then 'Lighthouse'
-                  when a.changevar like '%backlink%' then 'Backlinks'
+                  when a.changevar like '%content_%' then 'Content'
+                  when a.changevar like '%lh_%' then 'Lighthouse'
+                  when a.changevar like '%bl_%' then 'Backlinks'
                 end as variable_category,
               a.predict-b.predict as d_predict 
               from modeldata1_sim a 
@@ -1017,14 +1102,48 @@ for (kw in unique(finaldata_sim[finaldata_sim$changevar=="BASELINE" ,"keyword" ]
   bestinputs <- out2[out2$keyword==kw,"variable" ] # the variables from first run that would have positive impact
   bestinputs <- bestinputs[!bestinputs %in% c("GOAL","BASELINE")] 
   
-  for (catg in c("backlink","lighthouse","content")){  
-    tmp <- baselineset
-    for (var in grep(catg,bestinputs, value=TRUE)){
-      tmp[,var] <- goalset[,var]  
+#  for (catg in c("bl_","lh_","content_")){  
+#    tmp <- baselineset
+#    for (var in grep(catg,bestinputs, value=TRUE)){
+#      tmp[,var] <- goalset[,var]  
+#    }  
+#    tmp$changevar <- toupper(catg)
+#    finaldata_sim <- rbind(finaldata_sim,tmp)
+#  }
+  
+  for (bl_ in c(0,1)) {
+    for(lh_ in c(0,1)) {
+      for (content_ in c(0,1)) {
+        if ((bl_+lh_+content_) %in% c(1,2,3)) {  #only run if at least one of the categories has been set - and not all
+        
+          tmp <- baselineset
+          changevarname <- c()
+          
+          if (bl_==1) { 
+            for (var in grep("bl_",bestinputs, value=TRUE)){
+              tmp[,var] <- goalset[,var]  
+            }
+            changevarname <- c(changevarname,"BACKLINKS")
+          }
+          if (lh_==1) { 
+            for (var in grep("lh_",bestinputs, value=TRUE)){
+              tmp[,var] <- goalset[,var]  
+            }
+            changevarname <- c(changevarname,"LIGHTHOUSE")
+          }
+          if (content_==1) { 
+            for (var in grep("content_",bestinputs, value=TRUE)){
+              tmp[,var] <- goalset[,var]  
+            }
+            changevarname <- c(changevarname,"CONTENT")
+          }
+          
+          tmp$changevar <- paste(changevarname,collapse = "|")
+          finaldata_sim <- rbind(finaldata_sim,tmp)
+        }
+      }  
     }  
-    tmp$changevar <- toupper(catg)
-    finaldata_sim <- rbind(finaldata_sim,tmp)
-  }
+  } 
 }  
 
 # Competition url is only position 1 url: GOAL
@@ -1037,46 +1156,30 @@ modeldata2_sim <- sqldf(paste0("select distinct a.*, b.* ,",difvars,",
                     from finaldata_sim a
                     join finaldata2_sim b on a.keyword=b.keyword_u2"))
 
-for  (var in colnames(modeldata2_sim)) {
-  modeldata2_sim[is.nan(modeldata2_sim[,var]),var] <- -1
-}
+#for  (var in colnames(modeldata2_sim)) {
+#  modeldata2_sim[is.nan(modeldata2_sim[,var]),var] <- -1
+#}
 
 h2o_df2_sim <- as.h2o(modeldata2_sim, id="modeldata2_sim")
 
 scores_posdif2_sim <- as.data.frame(h2o.predict(object=saved_model,newdata=h2o_df2_sim, type="response"))
 modeldata2_sim <- cbind(modeldata2_sim,scores_posdif2_sim)
-
+View(modeldata2_sim)
 to_excelfile(modeldata2_sim,"tmp_modeldata2_sim.xlsx")
-
-
-
-View(modeldata2_sim[modeldata2_sim$keyword=="connect to remote computer" &  
-                      modeldata2_sim$variable=="backlink_domainZoneGov" &
-                      modeldata2_sim$url== "https://www.teamviewer.com/en-us/info/free-remote-pc/"
-                    ,] )
-
-View(modeldata2_sim[modeldata2_sim$keyword=="remote pc" &
-                      modeldata2_sim$url== "https://www.teamviewer.com/en-us/" & 
-                      modeldata2_sim$changevar=="content_H1_n" 
-                    ,c("keyword","url","changevar","predict","content_H1_n","content_H1_n_u2")] )
-
-View(modeldata2_sim[modeldata2_sim$keyword=="remote pc" &
-                      modeldata2_sim$url== "https://www.teamviewer.com/en-us/" & 
-                      modeldata2_sim$changevar=="content_H1_n" 
-                    ,] )
-
-
-colnames(modeldata2_sim)
 
 # Building output dataset ####
 
-out3 <- sqldf("select distinct a.keyword, c.domain, a.position, a.url, c.date, c.project, c.market, c.branding_keyword,
-              c.volume, c.traffic_est,c.d_traffic_est_1up, c.d_traffic_est_top,c.domain_name, 
+out3 <- sqldf("select distinct a.keyword, c.domain, a.position, a.url, c.date, c.project, 
+--c.market, 
+c.branding_keyword,
+              c.volume, c.traffic_est,c.d_traffic_est_1up, c.d_traffic_est_top,
+              
+              --c.domain_name, 
               c.keyw_cluster_label, a.changevar as variable,
                 case
-                  when a.changevar like '%content%' then 'Content'
-                  when a.changevar like '%lighth%' then 'Lighthouse'
-                  when a.changevar like '%backlink%' then 'Backlinks'
+                  when a.changevar like '%content_%' then 'Content'
+                  when a.changevar like '%lh_%' then 'Lighthouse'
+                  when a.changevar like '%bl_%' then 'Backlinks'
                 end as variable_category,
                 
               a.predict-b.predict as d_predict 
@@ -1087,7 +1190,7 @@ out3 <- sqldf("select distinct a.keyword, c.domain, a.position, a.url, c.date, c
 
 # Adding current and goal values in for each changevar
 for (i in 1:nrow(out3)) {
-  if (!toupper(out3[i,"variable"]) %in% c("BASELINE","GOAL","CONTENT","BACKLINK","LIGHTHOUSE")) { 
+  if (!toupper(out3[i,"variable"]) %in% c("BASELINE","GOAL","CONTENT_","BL_","LH_",grep("BACKLINKS|LIGHTHOUSE|CONTENT",out3$variable,value=TRUE ))) { 
     out3[i,"variable_value"] <-  
       unique(modeldata1_sim[modeldata1_sim$keyword==out3[i,"keyword"] &
                               modeldata1_sim$url==out3[i,"url"] &
@@ -1099,47 +1202,22 @@ for (i in 1:nrow(out3)) {
   } 
 }
 
-#### test #######
-tmp <- unique(modeldata1_sim[modeldata1_sim$keyword==out3[i,"keyword"], ])
-
-unique(finaldata[finaldata$keyword==out3[i,"keyword"] &
-                   finaldata$position==1, out3[i,"variable"]])
-
-View(finaldata[finaldata$keyword==out3[i,"keyword"] &
-                 finaldata$position==1, ])
-
-
-tst <- withTimeout({
-  keyword_crawler("best free remote desktop software	","https://www.g2.com/categories/remote-desktop/free")  
-}, timeout=30, onTimeout="warning")
-
-tst <- withTimeout({
-  keyword_crawler("best free remote desktop software	","https://www.teamviewer.com")  
-}, timeout=30, onTimeout="warning")
-View(tst$keyword_crawl_df )
-#out3$variabel_change_dtraffic_est <- -1 * out3$d_traffic_est_1up * out3$d_predict   
-
-variable <- "backlink_domainZoneGov"
-keyword <- "connect to remote computer"
-url <- "https://www.teamviewer.com/en-us/info/free-remote-pc/"
-
-#### end test #####
-
-
+# Estimating change in traffic 
 for (i in 1:nrow(out3)) {
-  out3[i,"variabel_change_dtraffic_est"]   <- calc_traf_est(volume=out3[i,"volume"], 
+  out3[i,"variabel_change_dtraffic_est"]   <- soa_calc_traf_est(volume=out3[i,"volume"], 
                                                             pos=max(1,out3[i,"position"] - floor(-1*out3[i,"d_predict"])),
                                                             frompos= out3[i,"position"],
                                                             branded_kw = ifelse(out3[i,"branding_keyword"]==1,TRUE,FALSE))$d_traf_est 
   if (abs(out3[i,"d_predict"])<1) out3[i,"variabel_change_dtraffic_est"] <- -1 * out3[i,"d_traffic_est_1up"] * out3[i,"d_predict"]  
 } 
-out3 <- out3[order(out3$keyword, out3$d_predict ),] 
-out3 <- out3[!out3$variable %in% c("content","lighthouse","backlink"), ]  # may be able to remove this later
-# removin to NA recommendationts
-out3 <- out3[is.na(out3$variable_value) == is.na(out3$variable_new_value),]  
+out3 <- out3[order(out3$keyword,out3$url,out3$d_predict),] 
 
-#View(out3[out3$keyword=="remote pc", ] )
-#View(out3[out3$keyword=="remote desktop app", ] )
+out3$variable <- gsub("CONTENT_","CONTENT",gsub("BL_","BACKLINKS",gsub("LH_","LIGHTHOUSE",out3$variable )))
+
+for (i in 1:nrow(out3)) {if (is.na(out3[i,"variable_category"] )) out3[i,"variable_category"] <- out3[i,"variable"]} 
+
+# BQ "recommendations"  ####
+senoa_bq_insert(out3, "model_recommendations")
 
 
 # OUTPUT 2
@@ -1150,6 +1228,7 @@ to_excelfile(out3,paste0(output_folder,projectname,"_",market,"_",daysdate,"_rec
 
 
 h2o.shutdown(prompt = TRUE)
+
 
 
 
