@@ -48,13 +48,14 @@ source("/home/johnw/Documents/git/r_stuff/SENOA/senoa_functions.r")
 source("https://raw.githubusercontent.com/pjerrot/r_stuff/master/pjerrots_mining_functions.R")
 
 # Getting CTR by position estimates ####
-ctrs <- read.xlsx("/home/johnw/Documents/git/r_stuff/SENOA/estimated_CTR_by_position.xlsx")
+ctrs <- read.xlsx("https://github.com/pjerrot/r_stuff/blob/master/SENOA/estimated_CTR_by_position.xlsx?raw=true")
 ctrs$position <- as.numeric(ctrs$position)
 
 # tokens
-google_api <- google_api_key <- as.character(read.csv("/home/johnw/Documents/snippets/ks.csv")[1,"value"])
+secrets_folder <- "C:/Users/johnw/Documents/secrets"
+google_api <- google_api_key <- as.character(read.csv(paste0(secrets_folder,"/ks.csv"))[1,"value"])
 api_key <<- google_api
-serpstat_api <- api_token <- as.character(read.csv("/home/johnw/Documents/snippets/ks.csv")[2,"value"])
+serpstat_api <- api_token <- as.character(read.csv(paste0(secrets_folder,"/ks.csv"))[2,"value"])
 
 # todaysdate
 daysdate <- gsub("-","",as.character(Sys.Date()))
@@ -63,46 +64,33 @@ daysdate_asdate <- Sys.Date()
 # setting region / marked
 regions <- c("g_uk")
 
+# Search engine
+search_engine <- "Google"
+kws0[,"searchengine"] <- search_engine
+
 # Number of keyword clusters that should be generated
 n_keyw_clusters <- 8
 
 # Run on number of parallel cores
-n_cores <- 16
+n_cores <- 30
 
 # local client folder
-clientfolder <- "/home/johnw/Documents/kki/"
+clientfolder <- "C:/Users/johnw/Documents/Buzzwire"
 
 # reading initial keywords
-#kws0 <- read.csv("/home/johnw/Downloads/kki_hub_keywords_raw.csv", sep=";")
-#kws0 <- read.xlsx("/home/johnw/Documents/kki/KyowaKirin - Keywords.xlsx")
-
-kws0 <- read.xlsx("/home/johnw/Documents/kki/Copy of KKI - Keyword to URL.xlsx", sheet="Match")
-colnames(kws0)[1:2] <- c("keyword","url") 
-kws0 <- kws0[,c("keyword","url") ] 
+kws0 <- read.xlsx(paste0(clientfolder,"/Buzzfire - all keywords final (investing-guides.co.uk EN-GB).xlsx"))
 kws0$region <- regions 
 market <- regions[1] 
+clientname <- "Buzzwire"
+clientdomain <- "investingreviews.co.uk"
+projectname <- "Buzzwire"
 
-### TEAMVIEWER RUN
-regions <- c("g_us")
-clientfolder <- "/home/johnw/Documents/Teamviewer/"
-clientname <- "Teamviewer"
-clientdomain <- "teamviewer.com"
-projectname <- "Teamviewer"
-market <- regions[1] 
-daysdate <- gsub("-","",as.character(Sys.Date()))
 
 # - end initialize 
 
 # 1: Generate keywords ####
 # Starting with initial set of keywords ####
 
-# Getting initial keywords ####
-kws <- unique(read.xlsx("/home/johnw/Documents/Teamviewer/TMV US Keywords.xlsx"))
-colnames(kws) <- c("keyword")
-kws$region <- "g_us" 
-keywords_all <- kws
-n_keyw_clusters <- 7
-# END TEAMVIEWER specs
 
 #kws0b <- NULL
 #for (region in regions){
@@ -114,24 +102,8 @@ n_keyw_clusters <- 7
 #keywords_all <- kws0b
 keywords_all <- kws0[kws0$region=="g_uk", ] 
 
-
 #kws0 <- unique(read.xlsx(paste0(clientfolder,"Digital marketing - NoaConnect agency industry.xlsx")))
 #colnames(kws0) <- c("keyword")
-
-clientname <- as.character(kws0[1,"client"])
-clientname <- "kyowakirin.com"
-clientdomain <- "kyowakirin.com"
-projectname <- as.character(kws0[1,"project"])
-projectname <- "Kyowa Kirin"
-#market <- paste(toupper(gsub("g_","",regions)),collapse="_")
-market <- regions[1] 
-search_engine <- as.character(kws0[1,"searchengine"])
-search_engine <- "Google"
-
-#clientname <- "NoA_Connect"
-#clientdomain <- "noaconnect.dk"
-#projectname <- "NoA Connect SEO audit"
-#market <- paste(toupper(gsub("g_","",regions)),collapse="_")
 
 # - end initialize 
 
@@ -192,8 +164,8 @@ raw_keywords$searchengine <- paste0(search_engine,collapse="_")
 raw_keywords$project <- projectname 
 raw_keywords$date <- daysdate
 raw_keywords$client <- clientname
+raw_keywords$market <- gsub("g_","",raw_keywords$region)
 senoa_bq_insert(raw_keywords, "raw_keywords")
-
 
 
 # 2: Get basic keyword info (especially volume) (serpstat) ####
@@ -248,12 +220,17 @@ out_positions[,"ctr_valid"] <- ifelse(out_positions[,"branding_keyword"]==1,
                                       out_positions[,"ctr_nonbranded"])
 out_positions$traffic_est <- as.numeric(as.character(out_positions$volume))*out_positions$ctr_valid/100
 
-tmp <- sqldf("select distinct a.*, 
+for (var in colnames(out_positions)) if (is.numeric(out_positions[,var])) out_positions[,var] <- as.numeric(out_positions[,var])
+tmp <- sqldf("select distinct 
+             a.keyword,a.domain,a.position,a.url,a.region,a.date,a.cost,a.difficulty,a.volume,a.ctr_branded,
+             a.ctr_nonbranded,a.keyw_cluster,a.keyw_cluster_label,a.keyw_supercluster,a.keyw_supercluster_label,
+             a.branding_fuzzy_match,a.branding_fuzzy_match_rel,a.branding_keyword,a.ctr_valid,a.traffic_est, 
              b.traffic_est - a.traffic_est as d_traffic_est_1up, 
              c.traffic_est - a.traffic_est as d_traffic_est_top
              from out_positions a 
              left join out_positions b on a.keyword=b.keyword and b.position = a.position-1
              left join out_positions c on a.keyword=c.keyword and c.position = 1")
+
 tmp[is.na(tmp$d_traffic_est_1up),"d_traffic_est_1up"] <- 0
 out_positions <- tmp
 out_positions <- unique(out_positions)
@@ -269,6 +246,8 @@ out_positions <- out_positions[,c("keyword","domain","position","url","region","
                                   "branding_keyword","ctr_valid","traffic_est","d_traffic_est_1up","d_traffic_est_top",
                                   "searchengine","project","client") ] 
 for (var in colnames(out_positions)){if (is.numeric(out_positions[,var] )) out_positions[,var] <- as.numeric(out_positions[,var])}
+
+out_positions$date  <- as.Date(out_positions$date,format = "%m/%d/%y")
 
 # BQ "raw_rankings"  ####
 senoa_bq_insert(out_positions, "raw_rankings")
@@ -309,8 +288,6 @@ length(urls)
 for (i in 1:length(urls)) {
   print(paste("crawling number ",i,"out of ",length(urls),": ",urls[i]))
   kws <- unique(out_positions[out_positions$url==urls[i],"keyword"  ] )
-  # SLET NEDENSTående linje
-  kws <- as.character(na.omit(unique(keywords_all_hub[keywords_all_hub$url==urls[i],"keyword"  ] ))) #SLET!!!
   tryCatch(
     {
       tst <- withTimeout({
@@ -359,8 +336,6 @@ save.image(paste0("ws4.RData"))
 
 #View(urls_w_cluster[grep(clientdomain,urls_w_cluster$url),])
 
-
-
 # 8: Getting backlink info from serpstat ####
 # Tager ret lang tid! Ca. 4 sek i gennemsnit pr dom?ne ;) (MEGET hurtigere om aftenen!)
 # 24*60*60/4 = 21600 runs pr day
@@ -390,10 +365,9 @@ for (region in unique(out_positions$region)){
 }
 
 colnames(blout)
-colnames(backlink_data)
 backlink_data <- blout
 colnames(backlink_data) <- paste0("bl_",colnames(backlink_data))
-backlink_data$linktodom_ratio <- backlink_data$backlinks/(1+backlink_data$referring_domains )
+#backlink_data$linktodom_ratio <- backlink_data$backlinks/(1+backlink_data$referring_domains )
 
 rm(blout)
 end_time <- Sys.time()
@@ -421,6 +395,9 @@ batch_count <- floor(length(run_these_urls_all)/batch_size)+1
 
 # mobile
 cl <- makeCluster(n_cores)
+cl <- makeCluster(detectCores(), type='PSOCK')
+registerDoParallel(cl)
+
 strategy <- "mobile"
 for (i in 1:batch_count){ 
   start <- (i-1)*batch_size + 1
@@ -439,11 +416,11 @@ for (i in 1:batch_count){
   
   print(paste0("Running mobile - strategy=",strategy))
   results_mobile <- parSapply(cl, siteurls, pagespeed_mets_mobile )
-  for (i in 1:length(results_mobile[3,])) {
-    if (!is.null(results_mobile[3,i][[1]]$TBT_value)){  
-      url <- results_mobile[1,i] 
-      strategy <- results_mobile[2,i]
-      mets <- results_mobile[3,][[i]] 
+  for (j in 1:length(results_mobile[3,])) {
+    if (!is.null(results_mobile[3,j][[1]]$TBT_value)){  
+      url <- results_mobile[1,j] 
+      strategy <- results_mobile[2,j]
+      mets <- results_mobile[3,][[j]] 
       mets[sapply(mets, is.null)] <- NULL
       tmp <- data.frame(url,strategy,t(unlist(mets)))
       colnames(tmp)[1:2] <- c("url","strategy") 
@@ -475,11 +452,11 @@ for (i in 1:batch_count){
   
   print(paste0("Running desktop - strategy=",strategy))
   results_desktop <- parSapply(cl, siteurls, pagespeed_mets_desktop )
-  for (i in 1:length(results_desktop[3,])) {
-    if (!is.null(results_desktop[3,i][[1]]$TBT_value)){  
-      url <- results_desktop[1,i] 
-      strategy <- results_desktop[2,i]
-      mets <- results_desktop[3,][[i]] 
+  for (j in 1:length(results_desktop[3,])) {
+    if (!is.null(results_desktop[3,j][[1]]$TBT_value)){  
+      url <- results_desktop[1,j] 
+      strategy <- results_desktop[2,j]
+      mets <- results_desktop[3,][[j]] 
       mets[sapply(mets, is.null)] <- NULL
       tmp <- data.frame(url,strategy,t(unlist(mets)))
       colnames(tmp)[1:2] <- c("url","strategy") 
@@ -692,6 +669,8 @@ finaldata[,c("lh_url","lh_date","content_keyword","content_url","bl_domain","bl_
 for (var in colnames(finaldata)) {
   print(paste(var,":",length(which(is.na(finaldata[,var])))))
 }
+
+colnames(finaldata) <- tolower(colnames(finaldata))
 
 # BQ raw_auditdata upload ####
 senoa_bq_insert(finaldata, "raw_auditdata")
