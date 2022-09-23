@@ -85,7 +85,6 @@ clientname <- "Buzzwire"
 clientdomain <- "investingreviews.co.uk"
 projectname <- "Buzzwire"
 
-
 # - end initialize 
 
 # 1: Generate keywords ####
@@ -250,14 +249,13 @@ for (var in colnames(out_positions)){if (is.numeric(out_positions[,var] )) out_p
 out_positions$date  <- as.Date(out_positions$date,format = "%m/%d/%y")
 
 # BQ "raw_rankings"  ####
+#out_positions2 <- senoa_change_format_for_bq(out_positions,"raw_rankings")
+out_positions$date <- daysdate_asdate 
 senoa_bq_insert(out_positions, "raw_rankings")
-
 
 #rankfails <- data.frame(kws_info$keyword[!kws_info$keyword %in% out_positions$keyword ]) 
 #colnames(rankfails) <- "keyword"
 #to_excelfile(rankfails,"KKI_rankfailed_keywords.xlsx")
-
-
 
 # Saving image ####
 
@@ -375,6 +373,8 @@ bl_time <- end_time - start_time
 
 save.image(paste0("ws5.RData"))
 
+colnames(backlink_data)[!colnames(backlink_data) %in% colnames(tmp)] 
+
 
 # 9: Google Lighthouse (pagespeed) ####
 
@@ -395,8 +395,6 @@ batch_count <- floor(length(run_these_urls_all)/batch_size)+1
 
 # mobile
 cl <- makeCluster(n_cores)
-cl <- makeCluster(detectCores(), type='PSOCK')
-registerDoParallel(cl)
 
 strategy <- "mobile"
 for (i in 1:batch_count){ 
@@ -621,22 +619,6 @@ for (i in 1:ncol(out_positions_top20_tst)) {
 out_positions_top20_tst$types <- NULL 
 out_positions_top20_tst <- unique(out_positions_top20_tst)
 
-paste(colnames(out_positions_top20_tst),collapse=",a.")
-
-
-out_positions_top20_tst_b <- sqldf("select 
-a.keyword,
-case when b.url is not null then 'kyowakirinhub.com' else a.domain end as domain,
-a.position,
-case when b.url is not null then b.url else a.url end as url,
-a.region,a.date,a.cost,a.difficulty,a.volume,a.ctr_branded,
-a.ctr_nonbranded,a.keyw_cluster,a.keyw_cluster_label,a.keyw_supercluster,a.keyw_supercluster_label,
-a.branding_fuzzy_match,a.branding_fuzzy_match_rel,a.branding_keyword,a.ctr_valid,a.traffic_est,
-a.d_traffic_est_1up,a.d_traffic_est_top,a.searchengine,a.project,a.client
-from out_positions_top20_tst a
-left join keywords_all_hub b on a.keyword=b.keyword and a.position=20
-                                   ")
-out_positions_top20_tst <- out_positions_top20_tst_b
 
 lhvars <- c("lh_domain","lh_TBT_value_mobile","lh_CLS_value_mobile","lh_FCP_value_mobile",
 "lh_SI_value_mobile","lh_LCP_value_mobile","lh_TTI_value_mobile" ,"lh_Lighthouse_score_mobile",
@@ -654,7 +636,7 @@ finaldata <- sqldf(paste0("select distinct a.*,
                   left join lightsout_final b on b.lh_domain = a.domain
                   left join content_stats_final d on d.content_url=a.url and a.keyword = d.content_keyword
                   left join backlink_data e on e.bl_domain = a.domain and a.region=bl_region
-                  where a.volume > 169
+                  where a.volume > 209
              "))
 finaldata$date <- daysdate
 finaldata$project <- projectname
@@ -672,8 +654,12 @@ for (var in colnames(finaldata)) {
 
 colnames(finaldata) <- tolower(colnames(finaldata))
 
+for (var in colnames(finaldata)) if (is.numeric(finaldata[,var] )) finaldata[,var] <- as.numeric(finaldata[,var] )  
+
 # BQ raw_auditdata upload ####
+finaldata$date <- as.integer(finaldata$date) 
 senoa_bq_insert(finaldata, "raw_auditdata")
+
 
 output_folder <- "C:\\Users\\johnw\\OneDrive - The North Alliance\\Data Science Ressources\\senoa_files\\"
 output_folder <- "/home/johnw/Documents/snippets/SENOA/output_files/"
@@ -772,7 +758,7 @@ h2o.init(ip = 'localhost', port = 4321, nthreads= -1, max_mem_size = "12g")
 # Uploading df to h2o
 h2o_df <- as.h2o(modeldata_lh_sample, id="modeldata1")
 
-splitdf = h2o.splitFrame(data = h2o_df, ratios = 0.5, seed=123454)
+splitdf = h2o.splitFrame(data = h2o_df, ratios = 0.7, seed=123454)
 h2o_train = splitdf[[1]]
 h2o_test = splitdf[[2]]
 
@@ -789,7 +775,8 @@ TV.automl_posdif <- h2o.automl(
   y = Y,
   training_frame    = h2o_train,
   leaderboard_frame = h2o_test,
-  max_runtime_secs = 48 * 3600 # running number of seconds
+  max_runtime_secs = 12 * 3600, # running number of seconds,
+  nfolds=10
   #max_runtime_secs = 7200 # running number of seconds
   #max_runtime_secs = 3600 # running number of seconds
   #,exclude_algos = c("DeepLearning") # allow this if running for long time
@@ -800,6 +787,7 @@ lb <- as.data.frame(TV.automl_posdif@leaderboard)
 
 # Picking the overall best model
 automl_leader <- picked_model_dif <- TV.automl_posdif@leader
+automl_leader_id <- lb[lb$rmse==min(lb$rmse),"model_id"]  
 test_perf <- h2o.performance(automl_leader,h2o_test) #performance
 test_perf@metrics$r2   
 train_perf <- h2o.performance(automl_leader,h2o_train) #performance
@@ -820,7 +808,7 @@ to_excelfile(varimps_posdif,paste0("varimp_",non_stacked_ensemble_mod_id[1],".xl
 # BQ saving varimp ####
 varimps_posdif$searchengine <- paste0(search_engine,collapse="_")
 varimps_posdif$project <- projectname 
-varimps_posdif$date <- format(daysdate_asdate ,"%m/%d/%y") 
+varimps_posdif$date <- daysdate_asdate
 varimps_posdif$client <- clientname
 varimps_posdif$modelid <- non_stacked_ensemble_mod_id[1]
 varimps_posdif <- as.data.frame(varimps_posdif[,c("variable","relative_importance","scaled_importance",
@@ -837,7 +825,7 @@ for (i in 1:nrow(lb)) {
   print(paste0(mod_id," - r2:",test_perf_non_stacked@metrics$r2))  
   r2s[i,c("modelid","r2")] <- c(mod_id,test_perf_non_stacked@metrics$r2) 
   # saving model for later use
-  #model_path <- h2o.saveModel(object=mod, path=getwd(), force=TRUE)
+  model_path <- h2o.saveModel(object=mod, path=getwd(), force=TRUE)
 } 
 r2s$r2 <- as.numeric(r2s$r2 ) 
 r2s0 <- read.xlsx("model_r2s.xlsx")
@@ -854,6 +842,7 @@ to_excelfile(varimps_posdif[-grep("_u2|_dif",varimps_posdif$variable),],
 #saved_model <- h2o.loadModel("XGBoost_grid__1_AutoML_20220731_093639_model_1")
 
 saved_model <- h2o.loadModel("models/StackedEnsemble_AllModels_AutoML_20220907_175256")
+saved_model <- h2o.loadModel(paste0("models/",automl_leader_id))
 #picked_model_dif <- h2o.getModel("StackedEnsemble_AllModels_AutoML_20220907_175256") 
 picked_model_dif <- saved_model
 
@@ -915,9 +904,10 @@ matchscores_dif_final$abs_error <- abs(matchscores_dif_final$position - matchsco
 mean(matchscores_dif_final$abs_error)
 modmetrics(matchscores_dif_final$position,matchscores_dif_final$rankscore)$r2
 
+#BQ saving model rank predictions to BQ ####
 matchscores_dif_final$searchengine <- paste0(search_engine,collapse="_")
 matchscores_dif_final$project <- projectname 
-matchscores_dif_final$date <- format(daysdate_asdate ,"%m/%d/%y") 
+matchscores_dif_final$date <- daysdate_asdate
 matchscores_dif_final$client <- clientname
 matchscores_dif_final$market <- gsub("g_","",matchscores_dif_final$region )
 senoa_bq_insert(matchscores_dif_final, "model_rank_prediction")

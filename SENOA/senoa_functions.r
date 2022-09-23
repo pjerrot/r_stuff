@@ -1186,6 +1186,33 @@ senoa_bq_insert <- function(df, # dataframe
   
 } 
 
+
+# Function to apply BQ table format to dataframe
+senoa_change_format_for_bq <- function(df,bqtable){
+  tb <- bq_project_query(
+    "seo-rank-prediction-model",
+    paste0("SELECT * FROM seo-rank-prediction-model.seo_output.",bqtable," limit 100")
+  )
+  tmp <- bq_table_download(tb)
+  
+  common <- colnames(df)
+  
+  missvars <- colnames(tmp)[!colnames(tmp) %in% colnames(df)] 
+  if (length(missvars)>0) print(paste0("These variables are missing from finaldata: ",
+                                      paste(missvars,collapse=",")))
+  
+  toomuch <- colnames(df)[!colnames(df) %in% colnames(tmp)] 
+  if (length(toomuch)>0) print(paste0("These variables are in finaldata but not in '",bqtable,"': ",
+                                       paste(toomuch,collapse=",")))
+  
+  if (length(toomuch)==0 & length(missvars)==0) {  
+    df[common] <- lapply(common, function(x) {
+      match.fun(paste0("as.", class(tmp[[x]])))(df[[x]])
+    })
+    return(df)
+  }
+}  
+
 # Retrieving Lighthouse data in parallel.
 
 pagespeed_mets_parallel <- function(siteurls, api_key=api_key, 
