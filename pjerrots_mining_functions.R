@@ -1895,3 +1895,16 @@ compare_dfs <- function(df1, df2) {
   result <- list(indf1notdf2,notindf1indf2)
   return(result)
 }
+
+myeuclid <- function(df1,df2,vars){  
+  require(sqldf)
+  df1$id_ <- 1:nrow(df1)
+  df2$id_ <- 1:nrow(df2)
+  sql <- "select a.id_ as id1, b.id_ as id2,sqrt(0 "
+  for (var in vars) {
+    sql <- paste(sql,paste0("+",paste(paste0("power((IFNULL(a.",var,",0) - IFNULL(b.",var,",0)),2)"),collapse="+") ))
+  }
+  sql <- paste(sql,") as dist from df1 a, df2 b")
+  tmp2 <- sqldf(sql)
+  return(tmp2)
+}
