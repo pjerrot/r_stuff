@@ -250,7 +250,9 @@ modmetrics <- function(true, predicted) {
   rmse <- Metrics::rmse(true,predicted)
   
   nrmse <- rmse/mean(true)
-  
+
+  mae <- mean(abs(true-predicted))
+	      
   bias_prct <- percent_bias(true,predicted)
   bias <- bias(true, predicted)
   
@@ -258,8 +260,8 @@ modmetrics <- function(true, predicted) {
   
   gini <- (auc-0.5)/((1-mean(true))/2)
   
-  outs <- list(rsquare, rmse, nrmse, bias_prct, auc, gini, bias)
-  names(outs) <- c("r2", "rmse", "nrmse", "bias_prct", "auc", "gini", "bias")
+  outs <- list(rsquare, rmse, nrmse, mae, bias_prct, auc, gini, bias)
+  names(outs) <- c("r2", "rmse", "nrmse", "mae","bias_prct", "auc", "gini", "bias")
   
   return (outs)
 }
