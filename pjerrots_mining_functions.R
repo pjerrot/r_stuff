@@ -80,7 +80,7 @@ inf.omit <- function(df) {
 
 # function that creates a sigmoid model on dataframe, input variables and target variable
 sigM <- function(df,target,inputs) {
-  
+  library(minpack.lm)
   # create a vector with all characters
   chars <- c(letters)[1:length(inputs)]
   
