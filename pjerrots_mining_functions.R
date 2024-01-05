@@ -78,6 +78,33 @@ inf.omit <- function(df) {
   return(df)
 }
 
+# function that creates a sigmoid model on dataframe, input variables and target variable
+sigM <- function(df,target,inputs) {
+  
+  # create a vector with all characters
+  chars <- c(letters)[1:length(inputs)]
+  
+  # finding start values
+  form0 <- as.formula(paste0(target," ~ ",paste0(inputs,collapse=" + ")))
+  mod0 <- lm(form0, data = df)
+  startvalues <- as.numeric(c(as.numeric(quantile(df[,target],0.95)),coef(mod0)[2:(length(inputs)+1)],0))
+  names(startvalues) <- c("L",chars,"d")
+  
+  # create formula
+  model_formula <- as.formula(paste0(target," ~ L / (1 + exp(-( ",paste0(chars,"*",inputs,collapse=" + ")," + d)))"))
+  
+  # run model
+  model <- nlsLM(model_formula, 
+                 data = df, 
+                 start = startvalues,
+                 control = list(maxiter = 500))
+  
+  out <- list(model,predict(model))
+  names(out) <- c("model","scores")
+  return(out)
+  
+}
+
 giniauc <- function(df,x,y,plotroc=TRUE){
   library("ggplot2")
   library("sqldf")
