@@ -1191,8 +1191,7 @@ cv.glmnet.wrap <- function(form,
   
   # outputting model formula
   modform <- paste(as.character(form)[2],as.character(form)[1], as.character(form)[3],collapse=" ")
-  
-  
+
   # outputting true coefficients in df
   xes <- xes[order(nchar(xes))] # sorting to make sure correct variable is assigned to right coefficients below...
   coeffs <- data.frame(coef.name = dimnames(coef(fit))[[1]][which(coef(fit, s = "lambda.min") != 0)], 
@@ -1223,9 +1222,9 @@ cv.glmnet.wrap <- function(form,
     sql <- paste("1/(1 + exp(-(",sql,")))" ,sep="") 
   }
   
-  fitpmml <- ifelse(family %in% c("gaussian","poisson"),pmml.cv.glmnet(fit),paste("PMML output not supported for",family,"models"))
-  fit <- list(fit,modform,coeffs,sql,fitpmml)
-  names(fit) <- c("fit","modform","coeffsdf","sql","pmml")
+  # fitpmml <- ifelse(family %in% c("gaussian","poisson"),pmml.cv.glmnet(fit),paste("PMML output not supported for",family,"models"))
+  fit <- list(fit,modform,coeffs,sql)
+  names(fit) <- c("fit","modform","coeffsdf","sql")
   out = fit
 }
 
